@@ -151,69 +151,6 @@
         background: #000;
     }
 
-    /* Debug Panel */
-    .debug-panel {
-        position: fixed;
-        bottom: 80px;
-        left: 10px;
-        right: 10px;
-        background: rgba(0, 0, 0, 0.95);
-        border: 1px solid #262626;
-        border-radius: 12px;
-        padding: 12px;
-        font-size: 11px;
-        font-family: monospace;
-        z-index: 9999;
-        max-height: 200px;
-        overflow-y: auto;
-    }
-
-    .debug-row {
-        display: flex;
-        justify-content: space-between;
-        padding: 4px 0;
-        border-bottom: 1px solid #1a1a1a;
-    }
-
-    .debug-row:last-child {
-        border-bottom: none;
-    }
-
-    .debug-label {
-        color: #8e8e8e;
-        font-weight: 600;
-    }
-
-    .debug-value {
-        color: #fff;
-        text-align: right;
-        word-break: break-all;
-        max-width: 60%;
-    }
-
-    .debug-value.success {
-        color: #00ff88;
-    }
-
-    .debug-value.error {
-        color: #ff4444;
-    }
-
-    .debug-toggle {
-        position: fixed;
-        bottom: 20px;
-        left: 10px;
-        background: #262626;
-        color: #fff;
-        border: 1px solid #3a3a3a;
-        padding: 8px 12px;
-        border-radius: 8px;
-        font-size: 11px;
-        font-weight: 600;
-        z-index: 10000;
-        cursor: pointer;
-    }
-
     .content-wrapper::-webkit-scrollbar {
         display: none;
     }
@@ -1115,11 +1052,6 @@
         animation: pulse 1.5s ease-in-out infinite;
     }
 
-    /* Smooth scroll */
-    .feed-view {
-        scroll-behavior: smooth;
-    }
-
     /* Better touch feedback */
     .entry-card:active,
     .grid-item:active,
@@ -1254,10 +1186,6 @@
         </div>
     </div>
 </div>
-
-<!-- Debug Panel -->
-<div id="debugPanel" class="debug-panel"></div>
-<button id="debugToggle" class="debug-toggle" onclick="toggleDebugPanel()">🐛 Show Debug</button>
 
 <!-- Floating Add Button -->
 <button class="add-btn" onclick="openModal()">+</button>
@@ -1429,46 +1357,36 @@
             window.orderBy = orderBy;
             window.onSnapshot = onSnapshot;
             
-            debugInfo.firebaseInitialized = true;
             console.log("✅ Firebase initialized successfully");
-            updateDebugPanel();
+            
             
             // Set persistence to LOCAL (survives browser restarts)
             setPersistence(window.auth, browserLocalPersistence).then(() => {
                 // Sign in with fixed email/password for persistent user ID
                 return signInWithEmailAndPassword(window.auth, FIREBASE_EMAIL, FIREBASE_PASSWORD);
             }).then(() => {
-                debugInfo.authEnabled = true;
                 console.log("✅ Signed in with persistent account");
                 showFirebaseStatus('connected');
-                updateDebugPanel();
             }).catch(error => {
                 console.error("❌ Auth error:", error);
-                debugInfo.errors.push("Auth: " + error.message);
                 window.useFirebase = false;
                 showFirebaseStatus('error');
-                updateDebugPanel();
-                
-                // Show error to user
-                alert("Firebase Auth Error: " + error.message + "\n\nCheck Firebase Console:\n1. Enable Email/Password auth\n2. Create user: user@trading-journal.app");
             });
 
             // Listen for auth state changes
             onAuthStateChanged(window.auth, (user) => {
                 if (user) {
                     window.currentUser = user;
-                    debugInfo.userId = user.uid;
                     console.log("✅ User authenticated:", user.uid);
-                    updateDebugPanel();
+                    
                     loadEntriesFromFirebase();
                 }
             });
         } catch (error) {
             console.error("❌ Firebase initialization error:", error);
-            debugInfo.errors.push("Init: " + error.message);
             window.useFirebase = false;
             showFirebaseStatus('error');
-            updateDebugPanel();
+            
         }
     }
 
@@ -1558,79 +1476,6 @@
     let notes = [];
     let reversals = [];
 
-    // Debug state
-    let debugInfo = {
-        firebaseInitialized: false,
-        authEnabled: false,
-        userId: null,
-        lastSaveAttempt: null,
-        lastSaveResult: null,
-        lastLoadAttempt: null,
-        lastLoadResult: null,
-        entriesCount: 0,
-        errors: []
-    };
-
-    function updateDebugPanel() {
-        const panel = document.getElementById('debugPanel');
-        if (!panel) return;
-
-        panel.innerHTML = `
-            <div class="debug-row">
-                <span class="debug-label">Firebase Init:</span>
-                <span class="debug-value ${debugInfo.firebaseInitialized ? 'success' : 'error'}">
-                    ${debugInfo.firebaseInitialized ? '✅ YES' : '❌ NO'}
-                </span>
-            </div>
-            <div class="debug-row">
-                <span class="debug-label">Auth Enabled:</span>
-                <span class="debug-value ${debugInfo.authEnabled ? 'success' : 'error'}">
-                    ${debugInfo.authEnabled ? '✅ YES' : '❌ NO'}
-                </span>
-            </div>
-            <div class="debug-row">
-                <span class="debug-label">User ID:</span>
-                <span class="debug-value ${debugInfo.userId ? 'success' : 'error'}">
-                    ${debugInfo.userId ? debugInfo.userId.substring(0, 20) + '...' : 'None'}
-                </span>
-            </div>
-            <div class="debug-row">
-                <span class="debug-label">Entries Count:</span>
-                <span class="debug-value">${debugInfo.entriesCount}</span>
-            </div>
-            <div class="debug-row">
-                <span class="debug-label">Last Save:</span>
-                <span class="debug-value ${debugInfo.lastSaveResult === 'success' ? 'success' : debugInfo.lastSaveResult === 'failed' ? 'error' : ''}">
-                    ${debugInfo.lastSaveAttempt || 'Never'} - ${debugInfo.lastSaveResult || 'N/A'}
-                </span>
-            </div>
-            <div class="debug-row">
-                <span class="debug-label">Last Load:</span>
-                <span class="debug-value ${debugInfo.lastLoadResult === 'success' ? 'success' : debugInfo.lastLoadResult === 'failed' ? 'error' : ''}">
-                    ${debugInfo.lastLoadAttempt || 'Never'} - ${debugInfo.lastLoadResult || 'N/A'}
-                </span>
-            </div>
-            ${debugInfo.errors.length > 0 ? `
-                <div class="debug-row">
-                    <span class="debug-label">Last Error:</span>
-                    <span class="debug-value error">${debugInfo.errors[debugInfo.errors.length - 1]}</span>
-                </div>
-            ` : ''}
-        `;
-    }
-
-    function toggleDebugPanel() {
-        const panel = document.getElementById('debugPanel');
-        const btn = document.getElementById('debugToggle');
-        if (panel.style.display === 'none') {
-            panel.style.display = 'block';
-            btn.textContent = '🐛 Hide Debug';
-        } else {
-            panel.style.display = 'none';
-            btn.textContent = '🐛 Show Debug';
-        }
-    }
-
 
     // Bubble selector functionality
     function setupBubbleSelectors() {
@@ -1696,15 +1541,11 @@
     async function saveToFirebase() {
         if (!window.useFirebase || !window.currentUser) {
             console.log("⚠️ Firebase not available, using localStorage only");
-            debugInfo.lastSaveAttempt = new Date().toLocaleTimeString();
-            debugInfo.lastSaveResult = 'skipped (no firebase)';
-            updateDebugPanel();
+            
             return;
         }
         
         try {
-            debugInfo.lastSaveAttempt = new Date().toLocaleTimeString();
-            debugInfo.entriesCount = entries.length;
             console.log(`💾 Saving ${entries.length} entries to Firebase...`);
             // Save each entry as a document
             for (const entry of entries) {
@@ -1712,13 +1553,10 @@
                 await window.setDoc(docRef, entry);
             }
             console.log("✅ Successfully saved to Firebase");
-            debugInfo.lastSaveResult = 'success';
-            updateDebugPanel();
+            
         } catch (error) {
             console.error('❌ Error saving to Firebase:', error);
-            debugInfo.lastSaveResult = 'failed';
-            debugInfo.errors.push("Save: " + error.message);
-            updateDebugPanel();
+            
             // Fallback to localStorage
             localStorage.setItem('tradingJournal', JSON.stringify(entries));
         }
@@ -1727,14 +1565,11 @@
     async function loadEntriesFromFirebase() {
         if (!window.useFirebase || !window.currentUser) {
             console.log("⚠️ Firebase not available, loading from localStorage");
-            debugInfo.lastLoadAttempt = new Date().toLocaleTimeString();
-            debugInfo.lastLoadResult = 'skipped (no firebase)';
-            updateDebugPanel();
+            
             return;
         }
         
         try {
-            debugInfo.lastLoadAttempt = new Date().toLocaleTimeString();
             console.log("📥 Loading entries from Firebase...");
             const entriesRef = window.collection(window.db, 'users', window.currentUser.uid, 'entries');
             const q = window.query(entriesRef, window.orderBy('date', 'desc'));
@@ -1751,16 +1586,12 @@
                     return (b.time || '').localeCompare(a.time || '');
                 });
                 console.log(`✅ Loaded ${entries.length} entries from Firebase`);
-                debugInfo.lastLoadResult = 'success';
-                debugInfo.entriesCount = entries.length;
-                updateDebugPanel();
+                
                 updateDisplay();
             });
         } catch (error) {
             console.error('Error loading from Firebase:', error);
-            debugInfo.lastLoadResult = 'failed';
-            debugInfo.errors.push("Load: " + error.message);
-            updateDebugPanel();
+            
             // Fallback to localStorage
             loadData();
         }
@@ -1781,8 +1612,6 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadData();
         loadNotes();
-        updateDebugPanel();
-        document.getElementById('debugPanel').style.display = 'none'; // Hidden by default
         const today = new Date().toISOString().split('T')[0];
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
@@ -1992,8 +1821,7 @@
             resetForm();
         } catch (error) {
             console.error('Error saving entry:', error);
-            debugInfo.errors.push('Form submit: ' + error.message);
-            updateDebugPanel();
+            
             alert('Error saving entry: ' + error.message);
         }
     });
