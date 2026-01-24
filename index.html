@@ -1379,6 +1379,41 @@
 </script>
 
 <script>
+    // Password Protection - Enter once and never again
+    // Safe because GitHub repo is private
+    const APP_PASSWORD = "trading2025"; // Change this to your desired password
+    
+    function checkAccess() {
+        const savedAuth = localStorage.getItem('trading-journal-authenticated');
+        
+        // If already authenticated, allow access
+        if (savedAuth === 'true') {
+            return true;
+        }
+        
+        // Otherwise, prompt for password
+        const password = prompt('🔒 Enter password to access Trading Journal:');
+        
+        if (password === APP_PASSWORD) {
+            localStorage.setItem('trading-journal-authenticated', 'true');
+            return true;
+        } else if (password === null) {
+            // User clicked cancel
+            document.body.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; color: #8e8e8e; font-size: 18px;">Access cancelled</div>';
+            return false;
+        } else {
+            // Wrong password
+            alert('❌ Incorrect password');
+            document.body.innerHTML = '<div style="display: flex; justify-content: center; align-items: center; height: 100vh; background: #000; color: #ff4444; font-size: 18px;">Access Denied</div>';
+            return false;
+        }
+    }
+    
+    // Check access immediately
+    if (!checkAccess()) {
+        throw new Error('Access denied');
+    }
+
     // Data variables
     let entries = [];
     let currentView = 'scroll';
@@ -1390,6 +1425,7 @@
     let currentCalendarMonth = new Date();
     let notes = [];
     let reversals = [];
+
 
     // Bubble selector functionality
     function setupBubbleSelectors() {
