@@ -1672,11 +1672,13 @@
     }
 
     // Save data to localStorage or Firebase
-    function saveData() {
+    async function saveData() {
+        // Always save to localStorage first as backup
+        localStorage.setItem('tradingJournal', JSON.stringify(entries));
+        
+        // Then try Firebase
         if (window.useFirebase && window.currentUser) {
-            saveToFirebase();
-        } else {
-            localStorage.setItem('tradingJournal', JSON.stringify(entries));
+            await saveToFirebase();
         }
     }
 
@@ -1871,7 +1873,7 @@
     }
 
     // Form submission
-    document.getElementById('entryForm').addEventListener('submit', function(e) {
+    document.getElementById('entryForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
         try {
@@ -1949,7 +1951,7 @@
                 if (dateCompare !== 0) return dateCompare;
                 return (b.time || '').localeCompare(a.time || '');
             });
-            saveData();
+            await saveData();
             updateDisplay();
             closeModal();
             resetForm();
@@ -2329,15 +2331,15 @@
         openModal();
     }
 
-    function deleteEntry(entryId) {
+    async function deleteEntry(entryId) {
         entries = entries.filter(e => e.id !== entryId);
         
         // Delete from Firebase if enabled
         if (window.useFirebase && window.currentUser) {
-            deleteFromFirebase(entryId);
+            await deleteFromFirebase(entryId);
         }
         
-        saveData();
+        await saveData();
         updateDisplay();
         closeModal();
         resetForm();
