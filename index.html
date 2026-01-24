@@ -1389,8 +1389,12 @@
 <script type="module">
     // Firebase Configuration
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-    import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
     import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Fixed user credentials for persistence
+    const FIREBASE_EMAIL = "user@trading-journal.app";
+    const FIREBASE_PASSWORD = "trading-journal-2025-secure";
 
     // Firebase configuration
     const firebaseConfig = {
@@ -1429,10 +1433,13 @@
             console.log("✅ Firebase initialized successfully");
             updateDebugPanel();
             
-            // Sign in anonymously
-            signInAnonymously(window.auth).then(() => {
+            // Set persistence to LOCAL (survives browser restarts)
+            setPersistence(window.auth, browserLocalPersistence).then(() => {
+                // Sign in with fixed email/password for persistent user ID
+                return signInWithEmailAndPassword(window.auth, FIREBASE_EMAIL, FIREBASE_PASSWORD);
+            }).then(() => {
                 debugInfo.authEnabled = true;
-                console.log("✅ Signed in anonymously");
+                console.log("✅ Signed in with persistent account");
                 showFirebaseStatus('connected');
                 updateDebugPanel();
             }).catch(error => {
