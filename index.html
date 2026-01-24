@@ -151,6 +151,69 @@
         background: #000;
     }
 
+    /* Debug Panel */
+    .debug-panel {
+        position: fixed;
+        bottom: 80px;
+        left: 10px;
+        right: 10px;
+        background: rgba(0, 0, 0, 0.95);
+        border: 1px solid #262626;
+        border-radius: 12px;
+        padding: 12px;
+        font-size: 11px;
+        font-family: monospace;
+        z-index: 9999;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+
+    .debug-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 4px 0;
+        border-bottom: 1px solid #1a1a1a;
+    }
+
+    .debug-row:last-child {
+        border-bottom: none;
+    }
+
+    .debug-label {
+        color: #8e8e8e;
+        font-weight: 600;
+    }
+
+    .debug-value {
+        color: #fff;
+        text-align: right;
+        word-break: break-all;
+        max-width: 60%;
+    }
+
+    .debug-value.success {
+        color: #00ff88;
+    }
+
+    .debug-value.error {
+        color: #ff4444;
+    }
+
+    .debug-toggle {
+        position: fixed;
+        bottom: 20px;
+        left: 10px;
+        background: #262626;
+        color: #fff;
+        border: 1px solid #3a3a3a;
+        padding: 8px 12px;
+        border-radius: 8px;
+        font-size: 11px;
+        font-weight: 600;
+        z-index: 10000;
+        cursor: pointer;
+    }
+
     .content-wrapper::-webkit-scrollbar {
         display: none;
     }
@@ -1192,6 +1255,10 @@
     </div>
 </div>
 
+<!-- Debug Panel -->
+<div id="debugPanel" class="debug-panel"></div>
+<button id="debugToggle" class="debug-toggle" onclick="toggleDebugPanel()">🐛 Show Debug</button>
+
 <!-- Floating Add Button -->
 <button class="add-btn" onclick="openModal()">+</button>
 ```
@@ -1348,24 +1415,78 @@
             window.auth = getAuth(window.app);
             window.db = getFirestore(window.app);
             window.useFirebase = true;
+            debugInfo.firebaseInitialized = true;
+            console.log("✅ Firebase initialized successfully");
+            updateDebugPanel();
             
             // Sign in anonymously
-            signInAnonymously(window.auth).catch(error => {
-                console.error("Auth error:", error);
+            signInAnonymously(window.auth).then(() => {
+                debugInfo.authEnabled = true;
+                console.log("✅ Signed in anonymously");
+                showFirebaseStatus('connected');
+                updateDebugPanel();
+            }).catch(error => {
+                console.error("❌ Auth error:", error);
+                debugInfo.errors.push("Auth: " + error.message);
                 window.useFirebase = false;
+                showFirebaseStatus('error');
+                updateDebugPanel();
             });
 
             // Listen for auth state changes
             onAuthStateChanged(window.auth, (user) => {
                 if (user) {
                     window.currentUser = user;
+                    debugInfo.userId = user.uid;
+                    console.log("✅ User authenticated:", user.uid);
+                    updateDebugPanel();
                     loadEntriesFromFirebase();
                 }
             });
         } catch (error) {
-            console.error("Firebase initialization error:", error);
+            console.error("❌ Firebase initialization error:", error);
+            debugInfo.errors.push("Init: " + error.message);
             window.useFirebase = false;
+            showFirebaseStatus('error');
+            updateDebugPanel();
         }
+    }
+
+    // Show Firebase status indicator
+    function showFirebaseStatus(status) {
+        const indicator = document.createElement('div');
+        indicator.style.cssText = `
+            position: fixed;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            z-index: 10000;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        `;
+        
+        if (status === 'connected') {
+            indicator.style.background = 'rgba(0, 255, 136, 0.2)';
+            indicator.style.color = '#00ff88';
+            indicator.innerHTML = '🔥 Cloud Sync ON';
+        } else {
+            indicator.style.background = 'rgba(255, 68, 68, 0.2)';
+            indicator.style.color = '#ff4444';
+            indicator.innerHTML = '⚠️ Local Only';
+        }
+        
+        document.body.appendChild(indicator);
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+            indicator.style.opacity = '0';
+            indicator.style.transition = 'opacity 0.5s';
+            setTimeout(() => indicator.remove(), 500);
+        }, 3000);
     }
 
     // Make Firebase functions available globally
@@ -1425,6 +1546,79 @@
     let currentCalendarMonth = new Date();
     let notes = [];
     let reversals = [];
+
+    // Debug state
+    let debugInfo = {
+        firebaseInitialized: false,
+        authEnabled: false,
+        userId: null,
+        lastSaveAttempt: null,
+        lastSaveResult: null,
+        lastLoadAttempt: null,
+        lastLoadResult: null,
+        entriesCount: 0,
+        errors: []
+    };
+
+    function updateDebugPanel() {
+        const panel = document.getElementById('debugPanel');
+        if (!panel) return;
+
+        panel.innerHTML = `
+            <div class="debug-row">
+                <span class="debug-label">Firebase Init:</span>
+                <span class="debug-value ${debugInfo.firebaseInitialized ? 'success' : 'error'}">
+                    ${debugInfo.firebaseInitialized ? '✅ YES' : '❌ NO'}
+                </span>
+            </div>
+            <div class="debug-row">
+                <span class="debug-label">Auth Enabled:</span>
+                <span class="debug-value ${debugInfo.authEnabled ? 'success' : 'error'}">
+                    ${debugInfo.authEnabled ? '✅ YES' : '❌ NO'}
+                </span>
+            </div>
+            <div class="debug-row">
+                <span class="debug-label">User ID:</span>
+                <span class="debug-value ${debugInfo.userId ? 'success' : 'error'}">
+                    ${debugInfo.userId ? debugInfo.userId.substring(0, 20) + '...' : 'None'}
+                </span>
+            </div>
+            <div class="debug-row">
+                <span class="debug-label">Entries Count:</span>
+                <span class="debug-value">${debugInfo.entriesCount}</span>
+            </div>
+            <div class="debug-row">
+                <span class="debug-label">Last Save:</span>
+                <span class="debug-value ${debugInfo.lastSaveResult === 'success' ? 'success' : debugInfo.lastSaveResult === 'failed' ? 'error' : ''}">
+                    ${debugInfo.lastSaveAttempt || 'Never'} - ${debugInfo.lastSaveResult || 'N/A'}
+                </span>
+            </div>
+            <div class="debug-row">
+                <span class="debug-label">Last Load:</span>
+                <span class="debug-value ${debugInfo.lastLoadResult === 'success' ? 'success' : debugInfo.lastLoadResult === 'failed' ? 'error' : ''}">
+                    ${debugInfo.lastLoadAttempt || 'Never'} - ${debugInfo.lastLoadResult || 'N/A'}
+                </span>
+            </div>
+            ${debugInfo.errors.length > 0 ? `
+                <div class="debug-row">
+                    <span class="debug-label">Last Error:</span>
+                    <span class="debug-value error">${debugInfo.errors[debugInfo.errors.length - 1]}</span>
+                </div>
+            ` : ''}
+        `;
+    }
+
+    function toggleDebugPanel() {
+        const panel = document.getElementById('debugPanel');
+        const btn = document.getElementById('debugToggle');
+        if (panel.style.display === 'none') {
+            panel.style.display = 'block';
+            btn.textContent = '🐛 Hide Debug';
+        } else {
+            panel.style.display = 'none';
+            btn.textContent = '🐛 Show Debug';
+        }
+    }
 
 
     // Bubble selector functionality
@@ -1487,25 +1681,48 @@
     }
 
     async function saveToFirebase() {
-        if (!window.useFirebase || !window.currentUser) return;
+        if (!window.useFirebase || !window.currentUser) {
+            console.log("⚠️ Firebase not available, using localStorage only");
+            debugInfo.lastSaveAttempt = new Date().toLocaleTimeString();
+            debugInfo.lastSaveResult = 'skipped (no firebase)';
+            updateDebugPanel();
+            return;
+        }
         
         try {
+            debugInfo.lastSaveAttempt = new Date().toLocaleTimeString();
+            debugInfo.entriesCount = entries.length;
+            console.log(`💾 Saving ${entries.length} entries to Firebase...`);
             // Save each entry as a document
             for (const entry of entries) {
                 const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'entries', entry.id.toString());
                 await window.setDoc(docRef, entry);
             }
+            console.log("✅ Successfully saved to Firebase");
+            debugInfo.lastSaveResult = 'success';
+            updateDebugPanel();
         } catch (error) {
-            console.error('Error saving to Firebase:', error);
+            console.error('❌ Error saving to Firebase:', error);
+            debugInfo.lastSaveResult = 'failed';
+            debugInfo.errors.push("Save: " + error.message);
+            updateDebugPanel();
             // Fallback to localStorage
             localStorage.setItem('tradingJournal', JSON.stringify(entries));
         }
     }
 
     async function loadEntriesFromFirebase() {
-        if (!window.useFirebase || !window.currentUser) return;
+        if (!window.useFirebase || !window.currentUser) {
+            console.log("⚠️ Firebase not available, loading from localStorage");
+            debugInfo.lastLoadAttempt = new Date().toLocaleTimeString();
+            debugInfo.lastLoadResult = 'skipped (no firebase)';
+            updateDebugPanel();
+            return;
+        }
         
         try {
+            debugInfo.lastLoadAttempt = new Date().toLocaleTimeString();
+            console.log("📥 Loading entries from Firebase...");
             const entriesRef = window.collection(window.db, 'users', window.currentUser.uid, 'entries');
             const q = window.query(entriesRef, window.orderBy('date', 'desc'));
             
@@ -1520,10 +1737,17 @@
                     if (dateCompare !== 0) return dateCompare;
                     return (b.time || '').localeCompare(a.time || '');
                 });
+                console.log(`✅ Loaded ${entries.length} entries from Firebase`);
+                debugInfo.lastLoadResult = 'success';
+                debugInfo.entriesCount = entries.length;
+                updateDebugPanel();
                 updateDisplay();
             });
         } catch (error) {
             console.error('Error loading from Firebase:', error);
+            debugInfo.lastLoadResult = 'failed';
+            debugInfo.errors.push("Load: " + error.message);
+            updateDebugPanel();
             // Fallback to localStorage
             loadData();
         }
@@ -1544,6 +1768,8 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadData();
         loadNotes();
+        updateDebugPanel();
+        document.getElementById('debugPanel').style.display = 'none'; // Hidden by default
         const today = new Date().toISOString().split('T')[0];
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
