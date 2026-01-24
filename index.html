@@ -1226,11 +1226,21 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Date & Time</label>
+                <label class="form-label">Entry Date & Time</label>
                 <div style="display: flex; gap: 10px;">
                     <input type="date" class="form-input" id="entryDate" required style="flex: 1;">
                     <input type="time" class="form-input" id="entryTime" required style="flex: 1;">
                 </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Target Acquired Time (Optional)</label>
+                <input type="time" class="form-input" id="targetTime" placeholder="Time target was hit">
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Ticks from Entry (Optional)</label>
+                <input type="number" class="form-input" id="ticksRun" placeholder="How many ticks it ran" step="0.25">
             </div>
 
             <div class="form-group">
@@ -1315,7 +1325,7 @@
 
             <div class="form-group">
                 <label class="form-label">Notes (Optional)</label>
-                <textarea class="form-input" id="notes" rows="4" placeholder="Additional trade notes, thoughts, or observations..."></textarea>
+                <textarea class="form-input" id="notes" rows="4" placeholder="Additional trade notes, thoughts, or observations..." style="white-space: pre-wrap;"></textarea>
             </div>
 
             <button type="submit" class="submit-btn">Save Entry</button>
@@ -1770,9 +1780,12 @@
             const symbol = document.querySelector('input[name="symbol"]:checked')?.value || 'ES';
             const date = document.getElementById('entryDate').value;
             const time = document.getElementById('entryTime').value;
+            const targetTime = document.getElementById('targetTime').value;
+            const ticksRunInput = document.getElementById('ticksRun').value;
+            const ticksRun = ticksRunInput ? parseFloat(ticksRunInput) : null;
             const balanceInput = document.getElementById('balance').value;
             const balance = balanceInput ? parseFloat(balanceInput) : null;
-            const notes = document.getElementById('notes').value.trim();
+            const notes = document.getElementById('notes').value;
             
             if (!date || !time) {
                 alert('Please fill in the date and time');
@@ -1806,6 +1819,8 @@
                         symbol,
                         date,
                         time,
+                        targetTime,
+                        ticksRun,
                         fvgTimeframe,
                         fib,
                         vpLevel,
@@ -1824,6 +1839,8 @@
                     symbol,
                     date,
                     time,
+                    targetTime,
+                    ticksRun,
                     fvgTimeframe,
                     fib,
                     vpLevel,
@@ -1973,8 +1990,20 @@
                         <span class="entry-label">1m Market Structure:</span>
                         <span class="entry-value">${entry.marketStructure}</span>
                     </div>
+                    ${entry.targetTime ? `
+                    <div class="entry-row">
+                        <span class="entry-label">Target Time:</span>
+                        <span class="entry-value">${entry.targetTime}</span>
+                    </div>
+                    ` : ''}
+                    ${entry.ticksRun != null ? `
+                    <div class="entry-row">
+                        <span class="entry-label">Ticks from Entry:</span>
+                        <span class="entry-value">${entry.ticksRun} ticks</span>
+                    </div>
+                    ` : ''}
                     ${entry.notes ? `
-                    <div class="entry-notes">${entry.notes}</div>
+                    <div class="entry-notes" style="white-space: pre-wrap;">${escapeHtml(entry.notes)}</div>
                     ` : ''}
                     ${entry.balance != null ? `
                     <div class="entry-row balance-row">
@@ -2295,7 +2324,7 @@
         container.innerHTML = notes.map(note => `
             <div class="note-item">
                 <div class="note-bullet">•</div>
-                <div class="note-content">${escapeHtml(note.text)}</div>
+                <div class="note-content" style="white-space: pre-wrap;">${escapeHtml(note.text)}</div>
                 <button class="note-delete" onclick="deleteNote(${note.id})">×</button>
             </div>
         `).join('');
@@ -2343,8 +2372,30 @@
     function openReversalModal() {
         document.getElementById('reversalModal').style.display = 'flex';
         const today = new Date().toISOString().split('T')[0];
+        const now = new Date();
+        const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         document.getElementById('reversalDate').value = today;
+        document.getElementById('reversalTime').value = currentTime;
         editingReversalId = null;
+    }
+
+    function editReversal(reversalId) {
+        const reversal = reversals.find(r => r.id === reversalId);
+        if (!reversal) return;
+        
+        editingReversalId = reversalId;
+        document.getElementById('reversalDate').value = reversal.date;
+        document.getElementById('reversalTime').value = reversal.time || '';
+        document.getElementById('reversalNotes').value = reversal.notes || '';
+        
+        if (reversal.image) {
+            reversalImage = reversal.image;
+            const preview = document.getElementById('reversalImagePreview');
+            preview.innerHTML = `<img src="${reversal.image}" style="width: 100%; border-radius: 14px;">`;
+            preview.style.display = 'block';
+        }
+        
+        document.getElementById('reversalModal').style.display = 'flex';
     }
 
     function closeReversalModal() {
@@ -2358,20 +2409,21 @@
     function handleReversalImage(e) {
         const file = e.target.files[0];
         if (file) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                reversalImage = event.target.result;
+            compressImage(file).then(compressedImage => {
+                reversalImage = compressedImage;
                 const preview = document.getElementById('reversalImagePreview');
                 preview.innerHTML = `<img src="${reversalImage}" style="width: 100%; border-radius: 14px;">`;
                 preview.style.display = 'block';
-            };
-            reader.readAsDataURL(file);
+            }).catch(error => {
+                console.error('Error compressing image:', error);
+            });
         }
     }
 
     function saveReversal() {
         const date = document.getElementById('reversalDate').value;
-        const notes = document.getElementById('reversalNotes').value.trim();
+        const time = document.getElementById('reversalTime').value;
+        const notes = document.getElementById('reversalNotes').value;
 
         if (!date) {
             alert('Please select a date');
@@ -2381,6 +2433,7 @@
         const reversal = {
             id: editingReversalId || Date.now(),
             date: date,
+            time: time,
             notes: notes,
             image: reversalImage,
             timestamp: new Date().toISOString()
@@ -2426,11 +2479,14 @@
         container.innerHTML = reversals.map(reversal => `
             <div class="reversal-item">
                 <div class="reversal-header">
-                    <div class="reversal-date">${formatDate(reversal.date)}</div>
-                    <button class="reversal-delete" onclick="deleteReversal(${reversal.id})">×</button>
+                    <div class="reversal-date">${formatDate(reversal.date)}${reversal.time ? ' • ' + reversal.time : ''}</div>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="reversal-edit" onclick="editReversal(${reversal.id})" style="background: transparent; border: none; color: #8e8e8e; font-size: 18px; cursor: pointer; padding: 0; width: 32px; height: 32px;">✎</button>
+                        <button class="reversal-delete" onclick="deleteReversal(${reversal.id})">×</button>
+                    </div>
                 </div>
                 ${reversal.image ? `<img src="${reversal.image}" class="reversal-image" alt="Pattern">` : ''}
-                ${reversal.notes ? `<div class="reversal-notes">${escapeHtml(reversal.notes)}</div>` : ''}
+                ${reversal.notes ? `<div class="reversal-notes" style="white-space: pre-wrap;">${escapeHtml(reversal.notes)}</div>` : ''}
             </div>
         `).join('');
     }
@@ -2454,6 +2510,11 @@
             </div>
 
             <div class="form-group">
+                <label class="form-label">Time</label>
+                <input type="time" id="reversalTime" class="form-input">
+            </div>
+
+            <div class="form-group">
                 <label class="form-label">Screenshot (Optional)</label>
                 <div class="image-upload" onclick="document.getElementById('reversalImageInput').click()">
                     <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
@@ -2465,7 +2526,7 @@
 
             <div class="form-group">
                 <label class="form-label">Notes (Optional)</label>
-                <textarea id="reversalNotes" class="form-input" rows="4" placeholder="Describe the reversal pattern..."></textarea>
+                <textarea id="reversalNotes" class="form-input" rows="4" placeholder="Describe the reversal pattern..." style="white-space: pre-wrap;"></textarea>
             </div>
 
             <button type="submit" class="submit-btn">Save Pattern</button>
