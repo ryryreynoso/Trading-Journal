@@ -1415,6 +1415,16 @@
             window.auth = getAuth(window.app);
             window.db = getFirestore(window.app);
             window.useFirebase = true;
+            
+            // Make Firebase functions available globally FIRST
+            window.setDoc = setDoc;
+            window.deleteDoc = deleteDoc;
+            window.doc = doc;
+            window.collection = collection;
+            window.query = query;
+            window.orderBy = orderBy;
+            window.onSnapshot = onSnapshot;
+            
             debugInfo.firebaseInitialized = true;
             console.log("✅ Firebase initialized successfully");
             updateDebugPanel();
@@ -1488,15 +1498,6 @@
             setTimeout(() => indicator.remove(), 500);
         }, 3000);
     }
-
-    // Make Firebase functions available globally
-    window.setDoc = setDoc;
-    window.deleteDoc = deleteDoc;
-    window.doc = doc;
-    window.collection = collection;
-    window.query = query;
-    window.orderBy = orderBy;
-    window.onSnapshot = onSnapshot;
 </script>
 
 <script>
@@ -1957,7 +1958,9 @@
             resetForm();
         } catch (error) {
             console.error('Error saving entry:', error);
-            alert('Error saving entry. Please try again.');
+            debugInfo.errors.push('Form submit: ' + error.message);
+            updateDebugPanel();
+            alert('Error saving entry: ' + error.message);
         }
     });
 
