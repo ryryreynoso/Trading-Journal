@@ -1448,6 +1448,9 @@
                 window.useFirebase = false;
                 showFirebaseStatus('error');
                 updateDebugPanel();
+                
+                // Show error to user
+                alert("Firebase Auth Error: " + error.message + "\n\nCheck Firebase Console:\n1. Enable Email/Password auth\n2. Create user: user@trading-journal.app");
             });
 
             // Listen for auth state changes
