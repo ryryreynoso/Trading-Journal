@@ -1814,35 +1814,59 @@
     }
 
     // Image upload preview
-    document.getElementById('imageInput').addEventListener('change', function(e) {
+    // Compress image to reduce Firebase storage usage
+    function compressImage(file, maxWidth = 1200, quality = 0.8) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    let width = img.width;
+                    let height = img.height;
+                    
+                    // Resize if too large
+                    if (width > maxWidth) {
+                        height = (height * maxWidth) / width;
+                        width = maxWidth;
+                    }
+                    
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Compress to JPEG with quality setting
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+                    resolve(compressedDataUrl);
+                };
+                img.onerror = reject;
+                img.src = e.target.result;
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
+    document.getElementById('imageInput').addEventListener('change', async function(e) {
         const files = Array.from(e.target.files);
         
         if (files.length === 0) return;
         
-        // Process files one by one to avoid errors
-        let processed = 0;
-        
-        files.forEach((file, index) => {
+        // Process files one by one with compression
+        for (const file of files) {
             if (file && file.type.startsWith('image/')) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    try {
-                        uploadedImages.push(e.target.result);
-                        processed++;
-                        if (processed === files.length) {
-                            updateImagePreviews();
-                        }
-                    } catch (error) {
-                        console.error('Error processing image:', error);
-                    }
-                };
-                reader.onerror = function(error) {
-                    console.error('Error reading file:', error);
-                    processed++;
-                };
-                reader.readAsDataURL(file);
+                try {
+                    const compressedImage = await compressImage(file, 1200, 0.7);
+                    uploadedImages.push(compressedImage);
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                }
             }
-        });
+        }
+        
+        updateImagePreviews();
         
         // Reset input
         this.value = '';
