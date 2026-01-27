@@ -5,15 +5,145 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-orientation=portrait">
     <title>Trading Journal</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
 
 ```
+<!-- PWA Meta Tags -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Trading Journal">
+<meta name="theme-color" content="#000000">
+
+<!-- Dynamic Icon Generation -->
+<script>
+    // Generate app icon dynamically
+    function generateAppIcon() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 512;
+        canvas.height = 512;
+        const ctx = canvas.getContext('2d');
+        
+        // Green glowing background (radial gradient)
+        const gradient = ctx.createRadialGradient(256, 256, 50, 256, 256, 300);
+        gradient.addColorStop(0, '#00ff44');
+        gradient.addColorStop(0.5, '#00cc33');
+        gradient.addColorStop(1, '#004422');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, 512, 512);
+        
+        // Bear head (brown circle)
+        ctx.fillStyle = '#8b4513';
+        ctx.beginPath();
+        ctx.arc(256, 240, 140, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Ears
+        ctx.fillStyle = '#a0522d';
+        ctx.beginPath();
+        ctx.arc(170, 130, 50, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(342, 130, 50, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner ears
+        ctx.fillStyle = '#cd8560';
+        ctx.beginPath();
+        ctx.arc(170, 135, 25, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(342, 135, 25, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Eyes (lazy squint with white highlights)
+        ctx.fillStyle = '#000';
+        ctx.fillRect(210, 220, 40, 15);
+        ctx.fillRect(262, 220, 40, 15);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(225, 222, 18, 8);
+        ctx.fillRect(277, 222, 18, 8);
+        
+        // Nose
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.ellipse(256, 270, 20, 25, 0, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Mouth (smirk)
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 5;
+        ctx.beginPath();
+        ctx.arc(256, 290, 35, 0.2, Math.PI - 0.2);
+        ctx.stroke();
+        
+        // Tuxedo (black)
+        ctx.fillStyle = '#1a1a1a';
+        ctx.fillRect(140, 340, 232, 150);
+        ctx.beginPath();
+        ctx.arc(256, 340, 116, 0, Math.PI, true);
+        ctx.fill();
+        
+        // White shirt
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(226, 360, 60, 100);
+        
+        // Bow tie
+        ctx.fillStyle = '#1a1a1a';
+        ctx.beginPath();
+        ctx.moveTo(226, 365);
+        ctx.lineTo(236, 375);
+        ctx.lineTo(226, 385);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(286, 365);
+        ctx.lineTo(276, 375);
+        ctx.lineTo(286, 385);
+        ctx.fill();
+        ctx.fillRect(236, 372, 40, 6);
+        
+        // Champagne glass
+        ctx.fillStyle = 'rgba(255, 220, 100, 0.7)';
+        ctx.fillRect(145, 400, 35, 50);
+        ctx.fillRect(150, 450, 25, 30);
+        ctx.fillRect(157, 480, 11, 5);
+        
+        // Bubbles/sparkles
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        [130, 165, 350, 380, 200, 300].forEach((x, i) => {
+            ctx.beginPath();
+            ctx.arc(x, 120 + i * 40, 4, 0, Math.PI * 2);
+            ctx.fill();
+        });
+        
+        return canvas.toDataURL('image/png');
+    }
+    
+    // Set icon when page loads
+    window.addEventListener('DOMContentLoaded', () => {
+        const iconData = generateAppIcon();
+        
+        // Create and set apple-touch-icon
+        const appleIcon = document.createElement('link');
+        appleIcon.rel = 'apple-touch-icon';
+        appleIcon.href = iconData;
+        document.head.appendChild(appleIcon);
+        
+        // Create and set regular icon
+        const icon = document.createElement('link');
+        icon.rel = 'icon';
+        icon.type = 'image/png';
+        icon.href = iconData;
+        document.head.appendChild(icon);
+    });
+</script>
+
+<style>
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+    }
+
     html {
         background: #000;
     }
@@ -65,6 +195,13 @@
 
     .balance-change.negative {
         color: #ff4444;
+    }
+
+    .win-rate-display {
+        position: absolute;
+        top: 15px;
+        right: 15px;
+        text-align: right;
     }
 
     .header-controls {
@@ -1087,6 +1224,10 @@
             <div class="balance-amount" id="totalBalance">$0</div>
             <div class="balance-change" id="balanceChange"></div>
         </div>
+        <div class="win-rate-display" id="winRate">
+            <div style="font-size: 11px; color: #8e8e8e; font-weight: 600;">WIN RATE</div>
+            <div id="winRateValue" style="font-size: 18px; font-weight: 700; color: #fff;">--%</div>
+        </div>
         <div class="header-controls">
             <div class="view-indicator">
                 <div class="view-icon active" data-view="scroll" onclick="scrollToView(0)">
@@ -1560,7 +1701,6 @@
     async function saveToFirebase() {
         if (!window.useFirebase || !window.currentUser) {
             console.log("⚠️ Firebase not available, using localStorage only");
-            
             return;
         }
         
@@ -1572,10 +1712,8 @@
                 await window.setDoc(docRef, entry);
             }
             console.log("✅ Successfully saved to Firebase");
-            
         } catch (error) {
             console.error('❌ Error saving to Firebase:', error);
-            
             // Fallback to localStorage
             localStorage.setItem('tradingJournal', JSON.stringify(entries));
         }
@@ -1858,14 +1996,37 @@
                 if (dateCompare !== 0) return dateCompare;
                 return (b.time || '').localeCompare(a.time || '');
             });
+            
+            // Disable submit button to prevent double-saves
+            const submitBtn = document.querySelector('#entryForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
+            }
+            
+            // Close modal immediately for better UX
+            closeModal();
+            
+            // Save in background
             await saveData();
             updateDisplay();
-            closeModal();
             resetForm();
+            
+            // Re-enable button
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Entry';
+            }
         } catch (error) {
             console.error('Error saving entry:', error);
-            
             alert('Error saving entry: ' + error.message);
+            
+            // Re-enable button on error
+            const submitBtn = document.querySelector('#entryForm button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Entry';
+            }
         }
     });
 
@@ -1890,6 +2051,7 @@
 
     function updateDisplay() {
         updateBalanceDisplay();
+        updateWinRate();
         updateScrollFeed();
         updateGridView();
         updateCalendar();
@@ -1920,6 +2082,33 @@
             balanceChangeEl.textContent = (change >= 0 ? '+' : '') + '$' + change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' (' + changePercent + '%)';
         } else {
             balanceChangeEl.textContent = '';
+        }
+    }
+
+    function updateWinRate() {
+        const winRateEl = document.getElementById('winRateValue');
+        
+        // Count correct and wrong entries
+        const correctEntries = entries.filter(e => e.analysisResult === 'Correct');
+        const wrongEntries = entries.filter(e => e.analysisResult === 'Wrong');
+        const totalAnalyzed = correctEntries.length + wrongEntries.length;
+        
+        if (totalAnalyzed === 0) {
+            winRateEl.textContent = '--%';
+            winRateEl.style.color = '#fff';
+            return;
+        }
+        
+        const winRate = ((correctEntries.length / totalAnalyzed) * 100).toFixed(0);
+        winRateEl.textContent = winRate + '%';
+        
+        // Color based on win rate
+        if (winRate >= 70) {
+            winRateEl.style.color = '#00ff88';
+        } else if (winRate >= 50) {
+            winRateEl.style.color = '#fff';
+        } else {
+            winRateEl.style.color = '#ff4444';
         }
     }
 
