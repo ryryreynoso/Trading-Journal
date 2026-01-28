@@ -1359,7 +1359,7 @@
     // Firebase Configuration
     import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
-    import { getFirestore, collection, doc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getFirestore, collection, doc, getDoc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
     // Fixed user credentials for persistence
     const FIREBASE_EMAIL = "user@trading-journal.app";
@@ -1391,6 +1391,7 @@
             
             // Make Firebase functions available globally FIRST
             window.setDoc = setDoc;
+            window.getDoc = getDoc;
             window.deleteDoc = deleteDoc;
             window.doc = doc;
             window.collection = collection;
@@ -2337,7 +2338,25 @@
     }
 
     // Notes functions
-    function loadNotes() {
+    async function loadNotes() {
+        // Try Firebase first
+        if (window.useFirebase && window.currentUser && window.getDoc) {
+            try {
+                const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'metadata', 'notes');
+                const docSnap = await window.getDoc(docRef);
+                
+                if (docSnap.exists() && docSnap.data().notes) {
+                    notes = docSnap.data().notes;
+                    console.log("✅ Loaded notes from Firebase");
+                    renderNotes();
+                    return;
+                }
+            } catch (error) {
+                console.error('❌ Error loading notes from Firebase:', error);
+            }
+        }
+        
+        // Fallback to localStorage
         const saved = localStorage.getItem('tradingJournalNotes');
         if (saved) {
             try {
@@ -2350,8 +2369,20 @@
         renderNotes(); // Always render to show empty state or data
     }
 
-    function saveNotes() {
+    async function saveNotes() {
+        // Save to localStorage
         localStorage.setItem('tradingJournalNotes', JSON.stringify(notes));
+        
+        // Save to Firebase
+        if (window.useFirebase && window.currentUser) {
+            try {
+                const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'metadata', 'notes');
+                await window.setDoc(docRef, { notes: notes });
+                console.log("✅ Notes saved to Firebase");
+            } catch (error) {
+                console.error('❌ Error saving notes to Firebase:', error);
+            }
+        }
     }
 
     function addNote() {
@@ -2423,7 +2454,25 @@
     let reversalImage = null;
     let editingReversalId = null;
 
-    function loadReversals() {
+    async function loadReversals() {
+        // Try Firebase first
+        if (window.useFirebase && window.currentUser && window.getDoc) {
+            try {
+                const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'metadata', 'reversals');
+                const docSnap = await window.getDoc(docRef);
+                
+                if (docSnap.exists() && docSnap.data().reversals) {
+                    reversals = docSnap.data().reversals;
+                    console.log("✅ Loaded reversals from Firebase");
+                    renderReversals();
+                    return;
+                }
+            } catch (error) {
+                console.error('❌ Error loading reversals from Firebase:', error);
+            }
+        }
+        
+        // Fallback to localStorage
         const saved = localStorage.getItem('tradingJournalReversals');
         if (saved) {
             try {
@@ -2436,8 +2485,20 @@
         renderReversals(); // Always render to show empty state or data
     }
 
-    function saveReversals() {
+    async function saveReversals() {
+        // Save to localStorage
         localStorage.setItem('tradingJournalReversals', JSON.stringify(reversals));
+        
+        // Save to Firebase
+        if (window.useFirebase && window.currentUser) {
+            try {
+                const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'metadata', 'reversals');
+                await window.setDoc(docRef, { reversals: reversals });
+                console.log("✅ Reversals saved to Firebase");
+            } catch (error) {
+                console.error('❌ Error saving reversals to Firebase:', error);
+            }
+        }
     }
 
     function openReversalModal() {
