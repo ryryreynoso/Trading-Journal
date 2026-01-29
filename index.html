@@ -13,12 +13,24 @@
 <meta name="apple-mobile-web-app-title" content="Trading Journal">
 <meta name="theme-color" content="#000000">
 
-<!-- App Icon -->
+<!-- App Icon - Try external file first, fallback to embedded -->
 <link rel="apple-touch-icon" sizes="180x180" href="icon.png">
 <link rel="apple-touch-icon" sizes="152x152" href="icon.png">
 <link rel="apple-touch-icon" sizes="120x120" href="icon.png">
 <link rel="icon" type="image/png" sizes="192x192" href="icon.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon.png">
+
+<!-- Fallback icon if icon.png doesn't load -->
+<script>
+    // Check if icon.png loads, if not use emoji
+    const testImg = new Image();
+    testImg.onerror = function() {
+        // icon.png failed, use emoji fallback
+        const emojiIcon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>";
+        document.querySelectorAll('link[rel*="icon"]').forEach(link => link.href = emojiIcon);
+    };
+    testImg.src = 'icon.png';
+</script>
 
 <style>
     * {
@@ -2388,7 +2400,7 @@
         }
     }
 
-    function addNote() {
+    async function addNote() {
         const input = document.getElementById('notesInput');
         const text = input.value.trim();
         
@@ -2401,14 +2413,14 @@
         };
         
         notes.unshift(note);
-        saveNotes();
+        await saveNotes();
         renderNotes();
         input.value = '';
     }
 
-    function deleteNote(noteId) {
+    async function deleteNote(noteId) {
         notes = notes.filter(n => n.id !== noteId);
-        saveNotes();
+        await saveNotes();
         renderNotes();
     }
 
@@ -2555,7 +2567,7 @@
         }
     }
 
-    function saveReversal() {
+    async function saveReversal() {
         const date = document.getElementById('reversalDate').value;
         const time = document.getElementById('reversalTime').value;
         const notes = document.getElementById('reversalNotes').value;
@@ -2584,15 +2596,15 @@
         }
 
         reversals.sort((a, b) => new Date(b.date) - new Date(a.date));
-        saveReversals();
+        await saveReversals();
         renderReversals();
         closeReversalModal();
     }
 
-    function deleteReversal(reversalId) {
+    async function deleteReversal(reversalId) {
         if (confirm('Delete this reversal pattern?')) {
             reversals = reversals.filter(r => r.id !== reversalId);
-            saveReversals();
+            await saveReversals();
             renderReversals();
         }
     }
