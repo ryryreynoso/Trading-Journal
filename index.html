@@ -13,24 +13,9 @@
 <meta name="apple-mobile-web-app-title" content="Trading Journal">
 <meta name="theme-color" content="#000000">
 
-<!-- App Icon - Try external file first, fallback to embedded -->
-<link rel="apple-touch-icon" sizes="180x180" href="icon.png">
-<link rel="apple-touch-icon" sizes="152x152" href="icon.png">
-<link rel="apple-touch-icon" sizes="120x120" href="icon.png">
-<link rel="icon" type="image/png" sizes="192x192" href="icon.png">
-<link rel="icon" type="image/png" sizes="512x512" href="icon.png">
-
-<!-- Fallback icon if icon.png doesn't load -->
-<script>
-    // Check if icon.png loads, if not use emoji
-    const testImg = new Image();
-    testImg.onerror = function() {
-        // icon.png failed, use emoji fallback
-        const emojiIcon = "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📈</text></svg>";
-        document.querySelectorAll('link[rel*="icon"]').forEach(link => link.href = emojiIcon);
-    };
-    testImg.src = 'icon.png';
-</script>
+<!-- App Icon - Embedded Bear SVG -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KICA8IS0tIEdyZWVuIGdsb3dpbmcgYmFja2dyb3VuZCAtLT4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYmciIGN4PSI1MCUiIGN5PSI1MCUiIHI9IjUwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGZmNDQ7c3RvcC1vcGFjaXR5OjAuNCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI1MCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGNjMzM7c3RvcC1vcGFjaXR5OjAuNyIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMDA0NDIyO3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTUiIGZpbGw9InVybCgjYmcpIi8+CiAgCiAgPCEtLSBCZWFyIGhlYWQgLS0+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjQwIiByPSIxNDAiIGZpbGw9IiM4YjQ1MTMiLz4KICAKICA8IS0tIEVhcnMgLS0+CiAgPGNpcmNsZSBjeD0iMTcwIiBjeT0iMTMwIiByPSI1MCIgZmlsbD0iI2EwNTIyZCIvPgogIDxjaXJjbGUgY3g9IjM0MiIgY3k9IjEzMCIgcj0iNTAiIGZpbGw9IiNhMDUyMmQiLz4KICA8Y2lyY2xlIGN4PSIxNzAiIGN5PSIxMzUiIHI9IjI1IiBmaWxsPSIjY2Q4NTYwIi8+CiAgPGNpcmNsZSBjeD0iMzQyIiBjeT0iMTM1IiByPSIyNSIgZmlsbD0iI2NkODU2MCIvPgogIAogIDwhLS0gRXllcyAoc3F1aW50ZWQpIC0tPgogIDxyZWN0IHg9IjIxMCIgeT0iMjIwIiB3aWR0aD0iNDAiIGhlaWdodD0iMTUiIHJ4PSI3IiBmaWxsPSIjMDAwIi8+CiAgPHJlY3QgeD0iMjYyIiB5PSIyMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxNSIgcng9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB4PSIyMjUiIHk9IjIyMiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSIyNzciIHk9IjIyMiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmYiLz4KICAKICA8IS0tIE5vc2UgLS0+CiAgPGVsbGlwc2UgY3g9IjI1NiIgY3k9IjI3MCIgcng9IjIwIiByeT0iMjUiIGZpbGw9IiMxYTFhMWEiLz4KICAKICA8IS0tIE1vdXRoIChzbWlyaykgLS0+CiAgPHBhdGggZD0iTTIyMCAyOTAgUTI1NiAzMTAgMjkyIDI5MCIgc3Ryb2tlPSIjMWExYTFhIiBzdHJva2Utd2lkdGg9IjUiIGZpbGw9Im5vbmUiLz4KICAKICA8IS0tIFR1eGVkbyAtLT4KICA8cGF0aCBkPSJNMTQwIDM0MCBRMjU2IDMxMCAzNzIgMzQwIEwzNzIgNDkwIFEyNTYgNTEyIDE0MCA0OTAgWiIgZmlsbD0iIzFhMWExYSIvPgogIDxyZWN0IHg9IjIyNiIgeT0iMzYwIiB3aWR0aD0iNjAiIGhlaWdodD0iMTMwIiBmaWxsPSIjZmZmIi8+CiAgCiAgPCEtLSBCb3cgdGllIC0tPgogIDxwYXRoIGQ9Ik0yMjYgMzY1IEwyMzYgMzc1IEwyMjYgMzg1IFoiIGZpbGw9IiMxYTFhMWEiLz4KICA8cGF0aCBkPSJNMjg2IDM2NSBMMjc2IDM3NSBMMjg2IDM4NSBaIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iMjM2IiB5PSIzNzIiIHdpZHRoPSI0MCIgaGVpZ2h0PSI2IiBmaWxsPSIjMWExYTFhIi8+CiAgCiAgPCEtLSBDaGFtcGFnbmUgZ2xhc3MgLS0+CiAgPHJlY3QgeD0iMTQ1IiB5PSI0MDAiIHdpZHRoPSIzNSIgaGVpZ2h0PSI1MCIgZmlsbD0icmdiYSgyNTUsMjIwLDEwMCwwLjcpIi8+CiAgPHJlY3QgeD0iMTUwIiB5PSI0NTAiIHdpZHRoPSIyNSIgaGVpZ2h0PSIzMCIgZmlsbD0icmdiYSgyNTUsMjIwLDEwMCwwLjcpIi8+CiAgPHJlY3QgeD0iMTU3IiB5PSI0ODAiIHdpZHRoPSIxMSIgaGVpZ2h0PSI1IiBmaWxsPSJyZ2JhKDE1MCwxNDAsNzAsMC44KSIvPgogIAogIDwhLS0gU3BhcmtsZXMgLS0+CiAgPGNpcmNsZSBjeD0iMTMwIiBjeT0iMTIwIiByPSI0IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuOCkiLz4KICA8Y2lyY2xlIGN4PSIxNjUiIGN5PSIxNjAiIHI9IjQiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC44KSIvPgogIDxjaXJjbGUgY3g9IjM1MCIgY3k9IjE0MCIgcj0iNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjgpIi8+CiAgPGNpcmNsZSBjeD0iMzgwIiBjeT0iMTgwIiByPSI0IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuOCkiLz4KPC9zdmc+Cg==">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj4KICA8IS0tIEdyZWVuIGdsb3dpbmcgYmFja2dyb3VuZCAtLT4KICA8ZGVmcz4KICAgIDxyYWRpYWxHcmFkaWVudCBpZD0iYmciIGN4PSI1MCUiIGN5PSI1MCUiIHI9IjUwJSI+CiAgICAgIDxzdG9wIG9mZnNldD0iMCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGZmNDQ7c3RvcC1vcGFjaXR5OjAuNCIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSI1MCUiIHN0eWxlPSJzdG9wLWNvbG9yOiMwMGNjMzM7c3RvcC1vcGFjaXR5OjAuNyIgLz4KICAgICAgPHN0b3Agb2Zmc2V0PSIxMDAlIiBzdHlsZT0ic3RvcC1jb2xvcjojMDA0NDIyO3N0b3Atb3BhY2l0eToxIiAvPgogICAgPC9yYWRpYWxHcmFkaWVudD4KICA8L2RlZnM+CiAgPHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTUiIGZpbGw9InVybCgjYmcpIi8+CiAgCiAgPCEtLSBCZWFyIGhlYWQgLS0+CiAgPGNpcmNsZSBjeD0iMjU2IiBjeT0iMjQwIiByPSIxNDAiIGZpbGw9IiM4YjQ1MTMiLz4KICAKICA8IS0tIEVhcnMgLS0+CiAgPGNpcmNsZSBjeD0iMTcwIiBjeT0iMTMwIiByPSI1MCIgZmlsbD0iI2EwNTIyZCIvPgogIDxjaXJjbGUgY3g9IjM0MiIgY3k9IjEzMCIgcj0iNTAiIGZpbGw9IiNhMDUyMmQiLz4KICA8Y2lyY2xlIGN4PSIxNzAiIGN5PSIxMzUiIHI9IjI1IiBmaWxsPSIjY2Q4NTYwIi8+CiAgPGNpcmNsZSBjeD0iMzQyIiBjeT0iMTM1IiByPSIyNSIgZmlsbD0iI2NkODU2MCIvPgogIAogIDwhLS0gRXllcyAoc3F1aW50ZWQpIC0tPgogIDxyZWN0IHg9IjIxMCIgeT0iMjIwIiB3aWR0aD0iNDAiIGhlaWdodD0iMTUiIHJ4PSI3IiBmaWxsPSIjMDAwIi8+CiAgPHJlY3QgeD0iMjYyIiB5PSIyMjAiIHdpZHRoPSI0MCIgaGVpZ2h0PSIxNSIgcng9IjciIGZpbGw9IiMwMDAiLz4KICA8cmVjdCB4PSIyMjUiIHk9IjIyMiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmYiLz4KICA8cmVjdCB4PSIyNzciIHk9IjIyMiIgd2lkdGg9IjE4IiBoZWlnaHQ9IjgiIGZpbGw9IiNmZmYiLz4KICAKICA8IS0tIE5vc2UgLS0+CiAgPGVsbGlwc2UgY3g9IjI1NiIgY3k9IjI3MCIgcng9IjIwIiByeT0iMjUiIGZpbGw9IiMxYTFhMWEiLz4KICAKICA8IS0tIE1vdXRoIChzbWlyaykgLS0+CiAgPHBhdGggZD0iTTIyMCAyOTAgUTI1NiAzMTAgMjkyIDI5MCIgc3Ryb2tlPSIjMWExYTFhIiBzdHJva2Utd2lkdGg9IjUiIGZpbGw9Im5vbmUiLz4KICAKICA8IS0tIFR1eGVkbyAtLT4KICA8cGF0aCBkPSJNMTQwIDM0MCBRMjU2IDMxMCAzNzIgMzQwIEwzNzIgNDkwIFEyNTYgNTEyIDE0MCA0OTAgWiIgZmlsbD0iIzFhMWExYSIvPgogIDxyZWN0IHg9IjIyNiIgeT0iMzYwIiB3aWR0aD0iNjAiIGhlaWdodD0iMTMwIiBmaWxsPSIjZmZmIi8+CiAgCiAgPCEtLSBCb3cgdGllIC0tPgogIDxwYXRoIGQ9Ik0yMjYgMzY1IEwyMzYgMzc1IEwyMjYgMzg1IFoiIGZpbGw9IiMxYTFhMWEiLz4KICA8cGF0aCBkPSJNMjg2IDM2NSBMMjc2IDM3NSBMMjg2IDM4NSBaIiBmaWxsPSIjMWExYTFhIi8+CiAgPHJlY3QgeD0iMjM2IiB5PSIzNzIiIHdpZHRoPSI0MCIgaGVpZ2h0PSI2IiBmaWxsPSIjMWExYTFhIi8+CiAgCiAgPCEtLSBDaGFtcGFnbmUgZ2xhc3MgLS0+CiAgPHJlY3QgeD0iMTQ1IiB5PSI0MDAiIHdpZHRoPSIzNSIgaGVpZ2h0PSI1MCIgZmlsbD0icmdiYSgyNTUsMjIwLDEwMCwwLjcpIi8+CiAgPHJlY3QgeD0iMTUwIiB5PSI0NTAiIHdpZHRoPSIyNSIgaGVpZ2h0PSIzMCIgZmlsbD0icmdiYSgyNTUsMjIwLDEwMCwwLjcpIi8+CiAgPHJlY3QgeD0iMTU3IiB5PSI0ODAiIHdpZHRoPSIxMSIgaGVpZ2h0PSI1IiBmaWxsPSJyZ2JhKDE1MCwxNDAsNzAsMC44KSIvPgogIAogIDwhLS0gU3BhcmtsZXMgLS0+CiAgPGNpcmNsZSBjeD0iMTMwIiBjeT0iMTIwIiByPSI0IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuOCkiLz4KICA8Y2lyY2xlIGN4PSIxNjUiIGN5PSIxNjAiIHI9IjQiIGZpbGw9InJnYmEoMjU1LDI1NSwyNTUsMC44KSIvPgogIDxjaXJjbGUgY3g9IjM1MCIgY3k9IjE0MCIgcj0iNCIgZmlsbD0icmdiYSgyNTUsMjU1LDI1NSwwLjgpIi8+CiAgPGNpcmNsZSBjeD0iMzgwIiBjeT0iMTgwIiByPSI0IiBmaWxsPSJyZ2JhKDI1NSwyNTUsMjU1LDAuOCkiLz4KPC9zdmc+Cg==">
 
 <style>
     * {
@@ -1437,6 +1422,8 @@
                     console.log("✅ User authenticated:", user.uid);
                     
                     loadEntriesFromFirebase();
+                    loadNotes();
+                    loadReversals();
                 }
             });
         } catch (error) {
@@ -1665,8 +1652,7 @@
     // Initialize
     document.addEventListener('DOMContentLoaded', function() {
         loadData();
-        loadNotes();
-        loadReversals();
+        // loadNotes() and loadReversals() are called after Firebase auth
         const today = new Date().toISOString().split('T')[0];
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
