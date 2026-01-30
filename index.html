@@ -1844,6 +1844,8 @@
     document.getElementById('entryForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
+        console.log('📝 Form submitted. editingEntryId =', editingEntryId);
+        
         try {
             const symbol = document.querySelector('input[name="symbol"]:checked')?.value || 'ES';
             const date = document.getElementById('entryDate').value;
@@ -1981,8 +1983,12 @@
         // Clear all bubble selections
         document.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
         
-        // Update modal title
+        // Update modal title and button text
         document.querySelector('.modal-title').textContent = 'New Trade Entry';
+        const submitBtn = document.querySelector('#entryForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.textContent = 'Save Entry';
+        }
         
         // Remove delete button if exists
         const existingDeleteBtn = document.getElementById('deleteEntryBtn');
@@ -2319,9 +2325,14 @@
         if (!entry) return;
         
         editingEntryId = entryId;
+        console.log('🔧 Setting editingEntryId to:', editingEntryId);
         
-        // Update modal title
+        // Update modal title AND button text
         document.querySelector('.modal-title').textContent = 'Edit Trade Entry';
+        const submitBtn = document.querySelector('#entryForm button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.textContent = 'Update Entry';
+        }
         
         // Fill form with entry data
         document.querySelector(`input[name="symbol"][value="${entry.symbol}"]`).checked = true;
