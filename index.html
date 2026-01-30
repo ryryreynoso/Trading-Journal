@@ -1883,7 +1883,7 @@
                 const index = entries.findIndex(e => e.id === editingEntryId);
                 if (index !== -1) {
                     entries[index] = {
-                        ...entries[index],
+                        id: editingEntryId, // Explicitly keep the same ID
                         symbol,
                         date,
                         time,
@@ -1965,6 +1965,7 @@
         uploadedImages = [];
         updateImagePreviews();
         document.getElementById('symbolES').checked = true;
+        editingEntryId = null; // Clear editing state
         
         // Clear all bubble selections
         document.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
