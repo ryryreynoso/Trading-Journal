@@ -1880,8 +1880,11 @@
             
             if (editingEntryId) {
                 // Update existing entry
+                console.log('🔧 Editing entry:', editingEntryId);
                 const index = entries.findIndex(e => e.id === editingEntryId);
+                console.log('📍 Found at index:', index);
                 if (index !== -1) {
+                    const oldEntry = entries[index];
                     entries[index] = {
                         id: editingEntryId, // Explicitly keep the same ID
                         symbol,
@@ -1898,10 +1901,12 @@
                         balance,
                         notes
                     };
+                    console.log('✅ Entry updated. Old:', oldEntry.id, 'New:', entries[index].id);
                 }
                 editingEntryId = null;
             } else {
                 // Create new entry
+                console.log('➕ Creating new entry');
                 const entry = {
                     id: Date.now(),
                     symbol,
@@ -1919,6 +1924,7 @@
                     notes
                 };
                 entries.unshift(entry);
+                console.log('✅ New entry created with ID:', entry.id);
             }
             
             entries.sort((a, b) => {
@@ -1939,7 +1945,12 @@
             
             // Save in background
             await saveData();
-            updateDisplay();
+            
+            // Only update display if Firebase is NOT active (Firebase listener will update)
+            if (!window.useFirebase || !window.currentUser) {
+                updateDisplay();
+            }
+            
             resetForm();
             
             // Re-enable button
