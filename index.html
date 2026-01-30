@@ -1279,6 +1279,7 @@
         </div>
 
         <form id="entryForm">
+            <input type="hidden" id="editingEntryIdInput" value="">
             <div class="form-group">
                 <label class="form-label">Symbol</label>
                 <div class="radio-group">
@@ -1569,30 +1570,48 @@
 
     // Bubble selector functionality
     function setupBubbleSelectors() {
-        // FVG - single selection (changed from multiple)
+        // FVG - single selection with toggle
         const fvgGroup = document.getElementById('fvgGroup');
         fvgGroup.querySelectorAll('.bubble-option').forEach(bubble => {
             bubble.addEventListener('click', function() {
-                fvgGroup.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+                if (this.classList.contains('active')) {
+                    // Already active - deselect it
+                    this.classList.remove('active');
+                } else {
+                    // Not active - deselect others and select this one
+                    fvgGroup.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                }
             });
         });
 
-        // Fib - single selection (no default)
+        // Fib - single selection with toggle
         const fibGroup = document.getElementById('fibGroup');
         fibGroup.querySelectorAll('.bubble-option').forEach(bubble => {
             bubble.addEventListener('click', function() {
-                fibGroup.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+                if (this.classList.contains('active')) {
+                    // Already active - deselect it
+                    this.classList.remove('active');
+                } else {
+                    // Not active - deselect others and select this one
+                    fibGroup.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                }
             });
         });
 
-        // VP - single selection (changed from multiple)
+        // VP - single selection with toggle
         const vpGroup = document.getElementById('vpGroup');
         vpGroup.querySelectorAll('.bubble-option').forEach(bubble => {
             bubble.addEventListener('click', function() {
-                vpGroup.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
-                this.classList.add('active');
+                if (this.classList.contains('active')) {
+                    // Already active - deselect it
+                    this.classList.remove('active');
+                } else {
+                    // Not active - deselect others and select this one
+                    vpGroup.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
+                    this.classList.add('active');
+                }
             });
         });
     }
@@ -1844,7 +1863,11 @@
     document.getElementById('entryForm').addEventListener('submit', async function(e) {
         e.preventDefault();
         
-        console.log('📝 Form submitted. editingEntryId =', editingEntryId);
+        // Get editing ID from hidden input (more reliable than global variable)
+        const editingIdFromForm = document.getElementById('editingEntryIdInput').value;
+        const isEditing = editingIdFromForm && editingIdFromForm !== '';
+        
+        console.log('📝 Form submitted. Editing ID from form:', editingIdFromForm, 'isEditing:', isEditing);
         
         try {
             const symbol = document.querySelector('input[name="symbol"]:checked')?.value || 'ES';
@@ -1880,15 +1903,16 @@
             // Use uploaded images array
             const images = [...uploadedImages];
             
-            if (editingEntryId) {
+            if (isEditing) {
                 // Update existing entry
-                console.log('🔧 Editing entry:', editingEntryId);
-                const index = entries.findIndex(e => e.id === editingEntryId);
+                const entryIdToEdit = parseInt(editingIdFromForm);
+                console.log('🔧 Editing entry:', entryIdToEdit);
+                const index = entries.findIndex(e => e.id === entryIdToEdit);
                 console.log('📍 Found at index:', index);
                 if (index !== -1) {
                     const oldEntry = entries[index];
                     entries[index] = {
-                        id: editingEntryId, // Explicitly keep the same ID
+                        id: entryIdToEdit, // Explicitly keep the same ID
                         symbol,
                         date,
                         time,
@@ -1906,6 +1930,7 @@
                     console.log('✅ Entry updated. Old:', oldEntry.id, 'New:', entries[index].id);
                 }
                 editingEntryId = null;
+                document.getElementById('editingEntryIdInput').value = ''; // Clear hidden input
             } else {
                 // Create new entry
                 console.log('➕ Creating new entry');
@@ -1979,6 +2004,7 @@
         updateImagePreviews();
         document.getElementById('symbolES').checked = true;
         editingEntryId = null; // Clear editing state
+        document.getElementById('editingEntryIdInput').value = ''; // Clear hidden input
         
         // Clear all bubble selections
         document.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
@@ -2325,6 +2351,7 @@
         if (!entry) return;
         
         editingEntryId = entryId;
+        document.getElementById('editingEntryIdInput').value = entryId; // Store in form
         console.log('🔧 Setting editingEntryId to:', editingEntryId);
         
         // Update modal title AND button text
