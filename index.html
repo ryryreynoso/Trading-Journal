@@ -608,6 +608,89 @@
         opacity: 0.6;
     }
 
+    /* Statistics View */
+    .statistics-view {
+        min-width: 100vw;
+        width: 100vw;
+        height: 100%;
+        overflow-y: auto;
+        scroll-snap-align: start;
+        -webkit-overflow-scrolling: touch;
+        padding: 20px 15px;
+        display: flex;
+        flex-direction: column;
+        background: #000;
+    }
+
+    .stats-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 25px;
+    }
+
+    .stats-title {
+        font-size: 28px;
+        font-weight: 800;
+        letter-spacing: -0.5px;
+        color: #fff;
+    }
+
+    .sync-btn:active {
+        opacity: 0.7;
+    }
+
+    .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-bottom: 30px;
+    }
+
+    .stat-card {
+        background: #1a1a1a;
+        border-radius: 14px;
+        padding: 18px;
+        border: 1px solid #262626;
+    }
+
+    .stat-label {
+        font-size: 12px;
+        color: #8e8e8e;
+        font-weight: 600;
+        margin-bottom: 8px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #fff;
+    }
+
+    .stat-value.positive {
+        color: #00ff88;
+    }
+
+    .stat-value.negative {
+        color: #ff4444;
+    }
+
+    .chart-container {
+        background: #1a1a1a;
+        border-radius: 14px;
+        padding: 20px;
+        border: 1px solid #262626;
+        margin-bottom: 20px;
+    }
+
+    #balanceChart {
+        width: 100% !important;
+        height: 250px !important;
+    }
+
+
     .notes-header {
         margin-bottom: 20px;
         padding: 20px 15px 0;
@@ -1141,6 +1224,7 @@
         }
     }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 ```
 
 </head>
@@ -1195,6 +1279,13 @@
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <polyline points="7,13 12,8 17,13"/>
                         <polyline points="17,11 12,16 7,11"/>
+                    </svg>
+                </div>
+                <div class="view-icon" data-view="statistics" onclick="scrollToView(5)">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="20" x2="12" y2="10"/>
+                        <line x1="18" y1="20" x2="18" y2="4"/>
+                        <line x1="6" y1="20" x2="6" y2="16"/>
                     </svg>
                 </div>
             </div>
@@ -1262,6 +1353,53 @@
             <button class="reversals-add-btn" onclick="openReversalModal()">+ Add Reversal Pattern</button>
         </div>
     </div>
+
+    <!-- Statistics View -->
+    <div class="statistics-view" id="statisticsView">
+        <div class="stats-header">
+            <h2 class="stats-title">Trading Statistics</h2>
+            <button class="sync-btn" onclick="manualSyncToFirebase()" style="padding: 8px 16px; background: #00ff88; color: #000; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
+                Sync to Cloud
+            </button>
+        </div>
+        
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-label">Win Rate</div>
+                <div class="stat-value" id="statsWinRate">--%</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Avg Win</div>
+                <div class="stat-value positive" id="statsAvgWin">$0</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Avg Loss</div>
+                <div class="stat-value negative" id="statsAvgLoss">$0</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Avg Daily P/L</div>
+                <div class="stat-value" id="statsAvgDaily">$0</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Avg Safe Stop Loss</div>
+                <div class="stat-value" id="statsAvgStop">-- pts</div>
+            </div>
+            
+            <div class="stat-card">
+                <div class="stat-label">Avg Target Run</div>
+                <div class="stat-value" id="statsAvgRun">-- pts</div>
+            </div>
+        </div>
+        
+        <div class="chart-container">
+            <h3 style="color: #fff; font-size: 16px; margin-bottom: 15px;">Account Balance History</h3>
+            <canvas id="balanceChart" width="400" height="250"></canvas>
+        </div>
+    </div>
 </div>
 
 <!-- Floating Add Button -->
@@ -1308,8 +1446,19 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Ticks from Entry (Optional)</label>
-                <input type="number" class="form-input" id="ticksRun" placeholder="How many ticks it ran" step="0.25">
+                <label class="form-label">Target Run (Optional)</label>
+                <div style="display: flex; gap: 10px;">
+                    <input type="number" class="form-input" id="targetRun" placeholder="Amount" step="0.25" style="flex: 2;">
+                    <select class="form-input" id="targetRunUnit" style="flex: 1;">
+                        <option value="points">Points</option>
+                        <option value="ticks">Ticks</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label class="form-label">Safe Stop Loss Points (Optional)</label>
+                <input type="number" class="form-input" id="safeStopLoss" placeholder="Stop loss in points" step="0.25">
             </div>
 
             <div class="form-group">
@@ -1638,12 +1787,26 @@
 
     // Save data to localStorage or Firebase
     async function saveData() {
-        // Always save to localStorage first as backup
+        // ALWAYS save to localStorage first (instant, no quota)
         localStorage.setItem('tradingJournal', JSON.stringify(entries));
         
-        // Then try Firebase
-        if (window.useFirebase && window.currentUser) {
+        // Don't auto-sync to Firebase to save quota
+        // User can manually sync using the sync button
+    }
+    
+    async function manualSyncToFirebase() {
+        if (!window.useFirebase || !window.currentUser) {
+            alert('Firebase not available');
+            return;
+        }
+        
+        try {
+            console.log('🔄 Manually syncing to Firebase...');
             await saveToFirebase();
+            alert('✅ Synced to Firebase successfully!');
+        } catch (error) {
+            console.error('❌ Sync failed:', error);
+            alert('Failed to sync: ' + error.message);
         }
     }
 
@@ -1874,8 +2037,16 @@
             const date = document.getElementById('entryDate').value;
             const time = document.getElementById('entryTime').value;
             const targetTime = document.getElementById('targetTime').value;
-            const ticksRunInput = document.getElementById('ticksRun').value;
-            const ticksRun = ticksRunInput ? parseFloat(ticksRunInput) : null;
+            
+            // New fields: Target Run with points/ticks selector
+            const targetRunInput = document.getElementById('targetRun').value;
+            const targetRun = targetRunInput ? parseFloat(targetRunInput) : null;
+            const targetRunUnit = document.getElementById('targetRunUnit').value; // 'points' or 'ticks'
+            
+            // New field: Safe Stop Loss
+            const safeStopLossInput = document.getElementById('safeStopLoss').value;
+            const safeStopLoss = safeStopLossInput ? parseFloat(safeStopLossInput) : null;
+            
             const balanceInput = document.getElementById('balance').value;
             const balance = balanceInput ? parseFloat(balanceInput) : null;
             const notes = document.getElementById('notes').value;
@@ -1917,7 +2088,9 @@
                         date,
                         time,
                         targetTime,
-                        ticksRun,
+                        targetRun,
+                        targetRunUnit,
+                        safeStopLoss,
                         fvgTimeframe,
                         fib,
                         vpLevel,
@@ -1940,7 +2113,9 @@
                     date,
                     time,
                     targetTime,
-                    ticksRun,
+                    targetRun,
+                    targetRunUnit,
+                    safeStopLoss,
                     fvgTimeframe,
                     fib,
                     vpLevel,
@@ -2029,6 +2204,7 @@
         updateScrollFeed();
         updateGridView();
         updateCalendar();
+        updateStatistics(); // New statistics update
     }
 
     function updateBalanceDisplay() {
@@ -2085,6 +2261,177 @@
             winRateEl.style.color = '#ff4444';
         }
     }
+
+    let balanceChart = null; // Store chart instance
+
+    function updateStatistics() {
+        // Win Rate
+        const correctEntries = entries.filter(e => e.analysisResult === 'Correct');
+        const wrongEntries = entries.filter(e => e.analysisResult === 'Wrong');
+        const totalAnalyzed = correctEntries.length + wrongEntries.length;
+        
+        const winRate = totalAnalyzed > 0 ? ((correctEntries.length / totalAnalyzed) * 100).toFixed(0) : 0;
+        document.getElementById('statsWinRate').textContent = winRate + '%';
+        
+        // Average Win/Loss (based on balance changes)
+        const entriesWithBalance = entries.filter(e => e.balance != null).sort((a, b) => new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time));
+        
+        let wins = [];
+        let losses = [];
+        
+        for (let i = 1; i < entriesWithBalance.length; i++) {
+            const diff = entriesWithBalance[i].balance - entriesWithBalance[i-1].balance;
+            if (diff > 0) wins.push(diff);
+            if (diff < 0) losses.push(Math.abs(diff));
+        }
+        
+        const avgWin = wins.length > 0 ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
+        const avgLoss = losses.length > 0 ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
+        
+        document.getElementById('statsAvgWin').textContent = '$' + avgWin.toFixed(2);
+        document.getElementById('statsAvgLoss').textContent = '$' + avgLoss.toFixed(2);
+        
+        // Average Daily P/L
+        const dailyPL = {};
+        entriesWithBalance.forEach(entry => {
+            if (!dailyPL[entry.date]) dailyPL[entry.date] = [];
+            dailyPL[entry.date].push(entry.balance);
+        });
+        
+        let dailyChanges = [];
+        Object.keys(dailyPL).forEach(date => {
+            const balances = dailyPL[date];
+            if (balances.length > 1) {
+                const change = balances[balances.length - 1] - balances[0];
+                dailyChanges.push(change);
+            }
+        });
+        
+        const avgDaily = dailyChanges.length > 0 ? dailyChanges.reduce((a, b) => a + b, 0) / dailyChanges.length : 0;
+        const avgDailyEl = document.getElementById('statsAvgDaily');
+        avgDailyEl.textContent = '$' + avgDaily.toFixed(2);
+        avgDailyEl.className = 'stat-value ' + (avgDaily >= 0 ? 'positive' : 'negative');
+        
+        // Average Safe Stop Loss
+        const stopLossEntries = entries.filter(e => e.safeStopLoss != null && e.safeStopLoss > 0);
+        const avgStop = stopLossEntries.length > 0 ? stopLossEntries.reduce((sum, e) => sum + e.safeStopLoss, 0) / stopLossEntries.length : 0;
+        document.getElementById('statsAvgStop').textContent = avgStop > 0 ? avgStop.toFixed(2) + ' pts' : '-- pts';
+        
+        // Average Target Run (convert ticks to points if needed: 4 ticks = 1 point for ES)
+        const runEntries = entries.filter(e => e.targetRun != null && e.targetRun > 0);
+        let totalPoints = 0;
+        runEntries.forEach(e => {
+            if (e.targetRunUnit === 'ticks') {
+                totalPoints += e.targetRun / 4; // Convert ticks to points
+            } else {
+                totalPoints += e.targetRun;
+            }
+        });
+        const avgRun = runEntries.length > 0 ? totalPoints / runEntries.length : 0;
+        document.getElementById('statsAvgRun').textContent = avgRun > 0 ? avgRun.toFixed(2) + ' pts' : '-- pts';
+        
+        // Update Balance Chart
+        updateBalanceChart(entriesWithBalance);
+    }
+
+    function updateBalanceChart(entriesWithBalance) {
+        const canvas = document.getElementById('balanceChart');
+        const ctx = canvas.getContext('2d');
+        
+        // Destroy previous chart if exists
+        if (balanceChart) {
+            balanceChart.destroy();
+        }
+        
+        if (entriesWithBalance.length === 0) {
+            // No data - show message
+            ctx.fillStyle = '#8e8e8e';
+            ctx.font = '14px SF Pro Display';
+            ctx.textAlign = 'center';
+            ctx.fillText('No balance data yet', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        // Prepare data
+        const labels = entriesWithBalance.map(e => {
+            const date = new Date(e.date + ' ' + e.time);
+            return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        });
+        const balances = entriesWithBalance.map(e => e.balance);
+        
+        // Create gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+        gradient.addColorStop(0, 'rgba(0, 255, 136, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 255, 136, 0)');
+        
+        balanceChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Account Balance',
+                    data: balances,
+                    borderColor: '#00ff88',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#00ff88',
+                    pointBorderColor: '#000',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: '#1a1a1a',
+                        titleColor: '#fff',
+                        bodyColor: '#00ff88',
+                        borderColor: '#262626',
+                        borderWidth: 1,
+                        padding: 12,
+                        displayColors: false,
+                        callbacks: {
+                            label: function(context) {
+                                return '$' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            color: '#262626',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#8e8e8e',
+                            maxTicksLimit: 6
+                        }
+                    },
+                    y: {
+                        grid: {
+                            color: '#262626',
+                            drawBorder: false
+                        },
+                        ticks: {
+                            color: '#8e8e8e',
+                            callback: function(value) {
+                                return '$' + value.toFixed(0);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
 
     function updateScrollFeed() {
         const scrollFeed = document.getElementById('scrollFeed');
@@ -2159,10 +2506,16 @@
                         <span class="entry-value">${entry.targetTime}</span>
                     </div>
                     ` : ''}
-                    ${entry.ticksRun != null ? `
+                    ${entry.targetRun != null ? `
                     <div class="entry-row">
-                        <span class="entry-label">Ticks from Entry:</span>
-                        <span class="entry-value">${entry.ticksRun} ticks</span>
+                        <span class="entry-label">Target Run:</span>
+                        <span class="entry-value">${entry.targetRun} ${entry.targetRunUnit || 'points'}</span>
+                    </div>
+                    ` : ''}
+                    ${entry.safeStopLoss != null ? `
+                    <div class="entry-row">
+                        <span class="entry-label">Safe Stop Loss:</span>
+                        <span class="entry-value">${entry.safeStopLoss} points</span>
                     </div>
                     ` : ''}
                     ${entry.notes ? `
@@ -2365,6 +2718,10 @@
         document.querySelector(`input[name="symbol"][value="${entry.symbol}"]`).checked = true;
         document.getElementById('entryDate').value = entry.date;
         document.getElementById('entryTime').value = entry.time || '09:30';
+        document.getElementById('targetTime').value = entry.targetTime || '';
+        document.getElementById('targetRun').value = entry.targetRun != null ? entry.targetRun : '';
+        document.getElementById('targetRunUnit').value = entry.targetRunUnit || 'points';
+        document.getElementById('safeStopLoss').value = entry.safeStopLoss != null ? entry.safeStopLoss : '';
         document.getElementById('balance').value = entry.balance != null ? entry.balance : '';
         document.getElementById('notes').value = entry.notes || '';
         
