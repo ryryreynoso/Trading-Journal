@@ -1358,9 +1358,14 @@
     <div class="statistics-view" id="statisticsView">
         <div class="stats-header">
             <h2 class="stats-title">Trading Statistics</h2>
-            <button class="sync-btn" onclick="manualSyncToFirebase()" style="padding: 8px 16px; background: #00ff88; color: #000; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
-                Sync to Cloud
-            </button>
+            <div style="display: flex; gap: 8px;">
+                <button class="sync-btn" onclick="loadFromFirebaseManually()" style="padding: 8px 16px; background: #4a9eff; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
+                    ↓ Load
+                </button>
+                <button class="sync-btn" onclick="manualSyncToFirebase()" style="padding: 8px 16px; background: #00ff88; color: #000; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
+                    ↑ Sync
+                </button>
+            </div>
         </div>
         
         <div class="stats-grid">
@@ -1588,6 +1593,7 @@
             // Make Firebase functions available globally FIRST
             window.setDoc = setDoc;
             window.getDoc = getDoc;
+            window.getDocs = getDocs;
             window.deleteDoc = deleteDoc;
             window.doc = doc;
             window.collection = collection;
@@ -1767,31 +1773,84 @@
 
     // Load data from localStorage
     function loadData() {
-        if (window.useFirebase && window.currentUser) {
-            // Data will be loaded by Firebase listener
-            return;
-        }
-        
-        // Load from localStorage
+        // Check if localStorage has data
         const saved = localStorage.getItem('tradingJournal');
+        
         if (saved) {
+            // Has local data - use it
             entries = JSON.parse(saved);
             entries.sort((a, b) => {
                 const dateCompare = new Date(b.date) - new Date(a.date);
                 if (dateCompare !== 0) return dateCompare;
                 return (b.time || '').localeCompare(a.time || '');
             });
+            console.log(`✅ Loaded ${entries.length} entries from localStorage`);
             updateDisplay();
+        } else {
+            // No local data - try Firebase if available
+            if (window.useFirebase && window.currentUser) {
+                console.log('📥 No local data, loading from Firebase...');
+                loadEntriesFromFirebase();
+            } else {
+                console.log('ℹ️ No data found');
+                updateDisplay();
+            }
         }
     }
 
     // Save data to localStorage or Firebase
     async function saveData() {
-        // ALWAYS save to localStorage first (instant, no quota)
+        // ALWAYS save to localStorage first (instant, guaranteed)
         localStorage.setItem('tradingJournal', JSON.stringify(entries));
         
-        // Don't auto-sync to Firebase to save quota
-        // User can manually sync using the sync button
+        // Also try to auto-sync to Firebase
+        if (window.useFirebase && window.currentUser) {
+            try {
+                await saveToFirebase();
+                console.log('✅ Auto-synced to Firebase');
+            } catch (error) {
+                console.error('⚠️ Firebase sync failed:', error);
+                
+                // Check if it's a quota error
+                if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                    showQuotaWarning();
+                }
+                // Don't alert - data is still safe in localStorage
+            }
+        }
+    }
+    
+    function showQuotaWarning() {
+        // Only show once per session
+        if (window.quotaWarningShown) return;
+        window.quotaWarningShown = true;
+        
+        const warning = document.createElement('div');
+        warning.style.cssText = `
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff9500;
+            color: #000;
+            padding: 16px 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(255, 149, 0, 0.3);
+            max-width: 90%;
+            text-align: center;
+        `;
+        warning.textContent = '⚠️ Firebase quota exceeded. Data saved locally only.';
+        document.body.appendChild(warning);
+        
+        // Auto-remove after 4 seconds
+        setTimeout(() => {
+            warning.style.transition = 'opacity 0.3s';
+            warning.style.opacity = '0';
+            setTimeout(() => warning.remove(), 300);
+        }, 4000);
     }
     
     async function manualSyncToFirebase() {
@@ -1806,7 +1865,32 @@
             alert('✅ Synced to Firebase successfully!');
         } catch (error) {
             console.error('❌ Sync failed:', error);
-            alert('Failed to sync: ' + error.message);
+            if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                alert('⚠️ Firebase quota exceeded. Data is saved locally. Try again tomorrow when quota resets.');
+            } else {
+                alert('Failed to sync: ' + error.message);
+            }
+        }
+    }
+    
+    async function loadFromFirebaseManually() {
+        if (!window.useFirebase || !window.currentUser) {
+            alert('Firebase not available');
+            return;
+        }
+        
+        const confirmed = confirm('Load data from cloud? This will replace your local data.');
+        if (!confirmed) return;
+        
+        try {
+            console.log('📥 Manually loading from Firebase...');
+            await loadEntriesFromFirebase();
+            await loadNotes();
+            await loadReversals();
+            alert('✅ Data loaded from Firebase successfully!');
+        } catch (error) {
+            console.error('❌ Load failed:', error);
+            alert('Failed to load: ' + error.message);
         }
     }
 
@@ -1834,7 +1918,6 @@
     async function loadEntriesFromFirebase() {
         if (!window.useFirebase || !window.currentUser) {
             console.log("⚠️ Firebase not available, loading from localStorage");
-            
             return;
         }
         
@@ -1843,21 +1926,23 @@
             const entriesRef = window.collection(window.db, 'users', window.currentUser.uid, 'entries');
             const q = window.query(entriesRef, window.orderBy('date', 'desc'));
             
-            // Real-time listener
-            window.onSnapshot(q, (snapshot) => {
-                entries = [];
-                snapshot.forEach((doc) => {
-                    entries.push(doc.data());
-                });
-                entries.sort((a, b) => {
-                    const dateCompare = new Date(b.date) - new Date(a.date);
-                    if (dateCompare !== 0) return dateCompare;
-                    return (b.time || '').localeCompare(a.time || '');
-                });
-                console.log(`✅ Loaded ${entries.length} entries from Firebase`);
-                
-                updateDisplay();
+            // One-time fetch (not real-time listener to avoid quota)
+            const snapshot = await window.getDocs(q);
+            entries = [];
+            snapshot.forEach((doc) => {
+                entries.push(doc.data());
             });
+            entries.sort((a, b) => {
+                const dateCompare = new Date(b.date) - new Date(a.date);
+                if (dateCompare !== 0) return dateCompare;
+                return (b.time || '').localeCompare(a.time || '');
+            });
+            console.log(`✅ Loaded ${entries.length} entries from Firebase`);
+            
+            // Save to localStorage for offline use
+            localStorage.setItem('tradingJournal', JSON.stringify(entries));
+            
+            updateDisplay();
         } catch (error) {
             console.error('Error loading from Firebase:', error);
             
@@ -1983,7 +2068,9 @@
         for (const file of files) {
             if (file && file.type.startsWith('image/')) {
                 try {
-                    const compressedImage = await compressImage(file, 1200, 0.7);
+                    // Aggressive compression: 800px max width, 50% quality
+                    // This should reduce file size by 80-90%
+                    const compressedImage = await compressImage(file, 800, 0.5);
                     uploadedImages.push(compressedImage);
                 } catch (error) {
                     console.error('Error processing image:', error);
@@ -2842,6 +2929,9 @@
                 console.log("✅ Notes saved to Firebase");
             } catch (error) {
                 console.error('❌ Error saving notes to Firebase:', error);
+                if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                    showQuotaWarning();
+                }
             }
         }
     }
@@ -2974,6 +3064,9 @@
                 console.log("✅ Reversals saved to Firebase");
             } catch (error) {
                 console.error('❌ Error saving reversals to Firebase:', error);
+                if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                    showQuotaWarning();
+                }
             }
         }
     }
@@ -3018,7 +3111,8 @@
     function handleReversalImage(e) {
         const file = e.target.files[0];
         if (file) {
-            compressImage(file).then(compressedImage => {
+            // Aggressive compression: 800px max width, 50% quality
+            compressImage(file, 800, 0.5).then(compressedImage => {
                 reversalImage = compressedImage;
                 const preview = document.getElementById('reversalImagePreview');
                 preview.innerHTML = `<img src="${reversalImage}" style="width: 100%; border-radius: 14px;">`;
