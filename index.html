@@ -743,6 +743,11 @@
         font-size: 15px;
         line-height: 1.5;
         word-wrap: break-word;
+        cursor: pointer;
+    }
+
+    .note-content:active {
+        opacity: 0.7;
     }
 
     .note-delete {
@@ -2360,41 +2365,37 @@
         const winRate = totalAnalyzed > 0 ? ((correctEntries.length / totalAnalyzed) * 100).toFixed(0) : 0;
         document.getElementById('statsWinRate').textContent = winRate + '%';
         
-        // Average Win/Loss (based on balance changes)
+        // Average Win/Loss per day (based on daily balance changes)
         const entriesWithBalance = entries.filter(e => e.balance != null).sort((a, b) => new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time));
         
-        let wins = [];
-        let losses = [];
-        
-        for (let i = 1; i < entriesWithBalance.length; i++) {
-            const diff = entriesWithBalance[i].balance - entriesWithBalance[i-1].balance;
-            if (diff > 0) wins.push(diff);
-            if (diff < 0) losses.push(Math.abs(diff));
-        }
-        
-        const avgWin = wins.length > 0 ? wins.reduce((a, b) => a + b, 0) / wins.length : 0;
-        const avgLoss = losses.length > 0 ? losses.reduce((a, b) => a + b, 0) / losses.length : 0;
-        
-        document.getElementById('statsAvgWin').textContent = '$' + avgWin.toFixed(2);
-        document.getElementById('statsAvgLoss').textContent = '$' + avgLoss.toFixed(2);
-        
-        // Average Daily P/L
+        // Group by date and calculate daily P/L
         const dailyPL = {};
         entriesWithBalance.forEach(entry => {
             if (!dailyPL[entry.date]) dailyPL[entry.date] = [];
             dailyPL[entry.date].push(entry.balance);
         });
         
-        let dailyChanges = [];
+        let winningDays = [];
+        let losingDays = [];
+        
         Object.keys(dailyPL).forEach(date => {
             const balances = dailyPL[date];
             if (balances.length > 1) {
                 const change = balances[balances.length - 1] - balances[0];
-                dailyChanges.push(change);
+                if (change > 0) winningDays.push(change);
+                if (change < 0) losingDays.push(Math.abs(change));
             }
         });
         
-        const avgDaily = dailyChanges.length > 0 ? dailyChanges.reduce((a, b) => a + b, 0) / dailyChanges.length : 0;
+        const avgWin = winningDays.length > 0 ? winningDays.reduce((a, b) => a + b, 0) / winningDays.length : 0;
+        const avgLoss = losingDays.length > 0 ? losingDays.reduce((a, b) => a + b, 0) / losingDays.length : 0;
+        
+        document.getElementById('statsAvgWin').textContent = '$' + avgWin.toFixed(2);
+        document.getElementById('statsAvgLoss').textContent = '$' + avgLoss.toFixed(2);
+        
+        // Average Daily P/L (all days combined - winning + losing)
+        const allDailyChanges = [...winningDays, ...losingDays.map(loss => -loss)];
+        const avgDaily = allDailyChanges.length > 0 ? allDailyChanges.reduce((a, b) => a + b, 0) / allDailyChanges.length : 0;
         const avgDailyEl = document.getElementById('statsAvgDaily');
         avgDailyEl.textContent = '$' + avgDaily.toFixed(2);
         avgDailyEl.className = 'stat-value ' + (avgDaily >= 0 ? 'positive' : 'negative');
@@ -2955,6 +2956,7 @@
     }
 
     async function deleteNote(noteId) {
+        if (!confirm('Delete this note?')) return;
         notes = notes.filter(n => n.id !== noteId);
         await saveNotes();
         renderNotes();
@@ -2977,10 +2979,22 @@
         container.innerHTML = notes.map(note => `
             <div class="note-item">
                 <div class="note-bullet">•</div>
-                <div class="note-content" style="white-space: pre-wrap;">${escapeHtml(note.text)}</div>
+                <div class="note-content" style="white-space: pre-wrap;" onclick="editNote(${note.id})">${escapeHtml(note.text)}</div>
                 <button class="note-delete" onclick="deleteNote(${note.id})">×</button>
             </div>
         `).join('');
+    }
+
+    function editNote(noteId) {
+        const note = notes.find(n => n.id === noteId);
+        if (!note) return;
+        
+        const newText = prompt('Edit note:', note.text);
+        if (newText !== null && newText.trim() !== '') {
+            note.text = newText.trim();
+            saveNotes();
+            renderNotes();
+        }
     }
 
     function escapeHtml(text) {
@@ -3013,6 +3027,13 @@
                 if (e.key === 'Enter') {
                     addNote();
                 }
+            });
+            
+            // Scroll input into view when keyboard appears
+            notesInput.addEventListener('focus', function() {
+                setTimeout(() => {
+                    this.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 300); // Wait for keyboard to appear
             });
         }
     });
