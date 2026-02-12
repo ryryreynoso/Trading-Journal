@@ -1915,9 +1915,61 @@
             console.log("✅ Successfully saved to Firebase");
         } catch (error) {
             console.error('❌ Error saving to Firebase:', error);
-            // Fallback to localStorage
+            
+            // Check for specific errors
+            if (error.code === 'permission-denied') {
+                showPermissionError();
+            } else if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                showQuotaWarning();
+            }
+            
+            // Always fallback to localStorage
             localStorage.setItem('tradingJournal', JSON.stringify(entries));
         }
+    }
+    
+    function showPermissionError() {
+        // Only show once per session
+        if (window.permissionErrorShown) return;
+        window.permissionErrorShown = true;
+        
+        const warning = document.createElement('div');
+        warning.style.cssText = `
+            position: fixed;
+            top: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff4444;
+            color: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: 600;
+            z-index: 10000;
+            box-shadow: 0 4px 12px rgba(255, 68, 68, 0.4);
+            max-width: 90%;
+            text-align: center;
+        `;
+        warning.innerHTML = `
+            🔒 Firebase Rules Expired
+            <div style="font-size: 12px; font-weight: 400; margin: 10px 0;">
+                Demo mode expired. Update rules in Firebase Console.
+            </div>
+            <button onclick="window.open('https://console.firebase.google.com', '_blank')" style="background: #fff; color: #ff4444; border: none; padding: 8px 16px; border-radius: 8px; font-weight: 600; margin-top: 8px; cursor: pointer;">
+                Open Firebase Console
+            </button>
+            <div style="font-size: 11px; font-weight: 400; margin-top: 8px; opacity: 0.9;">
+                Data is safe in localStorage ✅
+            </div>
+        `;
+        document.body.appendChild(warning);
+        
+        // Auto-remove after 8 seconds
+        setTimeout(() => {
+            warning.style.transition = 'opacity 0.3s';
+            warning.style.opacity = '0';
+            setTimeout(() => warning.remove(), 300);
+        }, 8000);
     }
 
     async function loadEntriesFromFirebase() {
