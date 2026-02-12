@@ -1816,11 +1816,15 @@
             } catch (error) {
                 console.error('⚠️ Firebase sync failed:', error);
                 
+                // Check for permission errors (expired rules)
+                if (error.code === 'permission-denied') {
+                    showPermissionError();
+                }
                 // Check if it's a quota error
-                if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                else if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
                     showQuotaWarning();
                 }
-                // Don't alert - data is still safe in localStorage
+                // Don't throw - data is still safe in localStorage
             }
         }
     }
@@ -2177,23 +2181,31 @@
         console.log('📝 Form submitted. Editing ID from form:', editingIdFromForm, 'isEditing:', isEditing);
         
         try {
+            console.log('🔍 Starting form validation...');
+            
             const symbol = document.querySelector('input[name="symbol"]:checked')?.value || 'ES';
-            const date = document.getElementById('entryDate').value;
-            const time = document.getElementById('entryTime').value;
-            const targetTime = document.getElementById('targetTime').value;
+            const date = document.getElementById('entryDate')?.value;
+            const time = document.getElementById('entryTime')?.value;
+            const targetTime = document.getElementById('targetTime')?.value;
+            
+            console.log('✅ Basic fields loaded');
             
             // New fields: Target Run with points/ticks selector
-            const targetRunInput = document.getElementById('targetRun').value;
+            const targetRunInput = document.getElementById('targetRun')?.value;
             const targetRun = targetRunInput ? parseFloat(targetRunInput) : null;
-            const targetRunUnit = document.getElementById('targetRunUnit').value; // 'points' or 'ticks'
+            const targetRunUnit = document.getElementById('targetRunUnit')?.value || 'points';
+            
+            console.log('✅ Target run fields loaded');
             
             // New field: Safe Stop Loss
-            const safeStopLossInput = document.getElementById('safeStopLoss').value;
+            const safeStopLossInput = document.getElementById('safeStopLoss')?.value;
             const safeStopLoss = safeStopLossInput ? parseFloat(safeStopLossInput) : null;
             
-            const balanceInput = document.getElementById('balance').value;
+            const balanceInput = document.getElementById('balance')?.value;
             const balance = balanceInput ? parseFloat(balanceInput) : null;
-            const notes = document.getElementById('notes').value;
+            const notes = document.getElementById('notes')?.value;
+            
+            console.log('✅ All input fields loaded');
             
             if (!date || !time) {
                 alert('Please fill in the date and time');
@@ -2201,22 +2213,28 @@
             }
             
             // Get FVG timeframe from bubble (single selection) - optional
-            const fvgBubble = document.getElementById('fvgGroup').querySelector('.bubble-option.active');
+            const fvgBubble = document.getElementById('fvgGroup')?.querySelector('.bubble-option.active');
             const fvgTimeframe = fvgBubble ? fvgBubble.dataset.value : null;
             
             // Get Fib from bubbles - optional
-            const fibBubble = document.getElementById('fibGroup').querySelector('.bubble-option.active');
+            const fibBubble = document.getElementById('fibGroup')?.querySelector('.bubble-option.active');
             const fib = fibBubble ? fibBubble.dataset.value : null;
             
             // Get VP level from bubble (single selection) - optional
-            const vpBubble = document.getElementById('vpGroup').querySelector('.bubble-option.active');
+            const vpBubble = document.getElementById('vpGroup')?.querySelector('.bubble-option.active');
             const vpLevel = vpBubble ? vpBubble.dataset.value : null;
+            
+            console.log('✅ Bubble options loaded');
             
             const marketStructure = document.querySelector('input[name="marketStructure"]:checked')?.value || 'No';
             const analysisResult = document.querySelector('input[name="analysisResult"]:checked')?.value || 'None';
             
+            console.log('✅ Radio buttons loaded');
+            
             // Use uploaded images array
             const images = [...uploadedImages];
+            
+            console.log('✅ All data collected, creating entry...');
             
             if (isEditing) {
                 // Update existing entry
@@ -2289,13 +2307,18 @@
             // Close modal immediately for better UX
             closeModal();
             
-            // Save in background
-            await saveData();
-            
-            // Only update display if Firebase is NOT active (Firebase listener will update)
-            if (!window.useFirebase || !window.currentUser) {
-                updateDisplay();
+            // Save in background - catch any Firebase errors
+            try {
+                await saveData();
+                console.log('✅ Entry saved successfully');
+            } catch (saveError) {
+                console.error('⚠️ Error during save:', saveError);
+                // Data is already in entries array and will be in localStorage
+                // Just log the error, don't alert the user
             }
+            
+            // Always update display (even if Firebase active)
+            updateDisplay();
             
             resetForm();
             
@@ -2305,8 +2328,14 @@
                 submitBtn.textContent = 'Save Entry';
             }
         } catch (error) {
-            console.error('Error saving entry:', error);
-            alert('Error saving entry: ' + error.message);
+            console.error('❌ Error saving entry:', error);
+            console.error('❌ Error stack:', error.stack);
+            
+            // Show user-friendly error
+            alert('Error saving entry. Please check:\n\n' +
+                  '1. Date and time are filled in\n' +
+                  '2. Try again or refresh the page\n\n' +
+                  'Technical error: ' + error.message);
             
             // Re-enable button on error
             const submitBtn = document.querySelector('#entryForm button[type="submit"]');
