@@ -1804,15 +1804,22 @@
     }
 
     // Save data to localStorage or Firebase
-    async function saveData() {
+    async function saveData(singleEntry = null) {
         // ALWAYS save to localStorage first (instant, guaranteed)
         localStorage.setItem('tradingJournal', JSON.stringify(entries));
         
         // Also try to auto-sync to Firebase
         if (window.useFirebase && window.currentUser) {
             try {
-                await saveToFirebase();
-                console.log('✅ Auto-synced to Firebase');
+                if (singleEntry) {
+                    // Save just the one entry that changed
+                    await saveEntryToFirebase(singleEntry);
+                    console.log('✅ Auto-synced 1 entry to Firebase');
+                } else {
+                    // Manual sync - save all entries
+                    await saveToFirebase();
+                    console.log('✅ Auto-synced all entries to Firebase');
+                }
             } catch (error) {
                 console.error('⚠️ Firebase sync failed:', error);
                 
@@ -1911,7 +1918,11 @@
         
         try {
             console.log(`💾 Saving ${entries.length} entries to Firebase...`);
-            // Save each entry as a document
+            // PROBLEM: This was saving ALL entries every time!
+            // This causes massive quota usage
+            // TODO: Only save changed entries
+            // For now, this is only called manually via Sync button
+            
             for (const entry of entries) {
                 const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'entries', entry.id.toString());
                 await window.setDoc(docRef, entry);
@@ -1929,6 +1940,25 @@
             
             // Always fallback to localStorage
             localStorage.setItem('tradingJournal', JSON.stringify(entries));
+        }
+    }
+    
+    async function saveEntryToFirebase(entry) {
+        // Save just ONE entry to Firebase
+        if (!window.useFirebase || !window.currentUser) return;
+        
+        try {
+            const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'entries', entry.id.toString());
+            await window.setDoc(docRef, entry);
+            console.log(`✅ Saved entry ${entry.id} to Firebase`);
+        } catch (error) {
+            console.error('❌ Error saving entry to Firebase:', error);
+            
+            if (error.code === 'permission-denied') {
+                showPermissionError();
+            } else if (error.code === 'resource-exhausted' || error.message.includes('quota')) {
+                showQuotaWarning();
+            }
         }
     }
     
@@ -2236,6 +2266,8 @@
             
             console.log('✅ All data collected, creating entry...');
             
+            let savedEntry = null;
+            
             if (isEditing) {
                 // Update existing entry
                 const entryIdToEdit = parseInt(editingIdFromForm);
@@ -2262,6 +2294,7 @@
                         balance,
                         notes
                     };
+                    savedEntry = entries[index]; // Save reference to the edited entry
                     console.log('✅ Entry updated. Old:', oldEntry.id, 'New:', entries[index].id);
                 }
                 editingEntryId = null;
@@ -2288,6 +2321,7 @@
                     notes
                 };
                 entries.unshift(entry);
+                savedEntry = entry; // Save reference to the new entry
                 console.log('✅ New entry created with ID:', entry.id);
             }
             
@@ -2308,8 +2342,9 @@
             closeModal();
             
             // Save in background - catch any Firebase errors
+            // Pass the specific entry to save just that one to Firebase
             try {
-                await saveData();
+                await saveData(savedEntry);
                 console.log('✅ Entry saved successfully');
             } catch (saveError) {
                 console.error('⚠️ Error during save:', saveError);
