@@ -3039,7 +3039,7 @@
     });
 
     // Reversal Patterns functions
-    let reversalImage = null;
+    let reversalImages = []; // Changed from single to array
     let editingReversalId = null;
 
     async function loadReversals() {
@@ -3111,12 +3111,9 @@
         document.getElementById('reversalTime').value = reversal.time || '';
         document.getElementById('reversalNotes').value = reversal.notes || '';
         
-        if (reversal.image) {
-            reversalImage = reversal.image;
-            const preview = document.getElementById('reversalImagePreview');
-            preview.innerHTML = `<img src="${reversal.image}" style="width: 100%; border-radius: 14px;">`;
-            preview.style.display = 'block';
-        }
+        // Load existing images (support both old single image and new array)
+        reversalImages = reversal.images || (reversal.image ? [reversal.image] : []);
+        updateReversalImagePreviews();
         
         document.getElementById('reversalModal').style.display = 'flex';
     }
@@ -3124,24 +3121,56 @@
     function closeReversalModal() {
         document.getElementById('reversalModal').style.display = 'none';
         document.getElementById('reversalForm').reset();
-        reversalImage = null;
+        reversalImages = []; // Clear images array
         editingReversalId = null;
         document.getElementById('reversalImagePreview').style.display = 'none';
+        document.getElementById('reversalImagePreview').innerHTML = '';
     }
 
-    function handleReversalImage(e) {
-        const file = e.target.files[0];
-        if (file) {
-            // Aggressive compression: 800px max width, 50% quality
-            compressImage(file, 800, 0.5).then(compressedImage => {
-                reversalImage = compressedImage;
-                const preview = document.getElementById('reversalImagePreview');
-                preview.innerHTML = `<img src="${reversalImage}" style="width: 100%; border-radius: 14px;">`;
-                preview.style.display = 'block';
-            }).catch(error => {
-                console.error('Error compressing image:', error);
-            });
+    async function handleReversalImages(e) {
+        const files = Array.from(e.target.files);
+        
+        if (files.length === 0) return;
+        
+        // Process files one by one with compression
+        for (const file of files) {
+            if (file && file.type.startsWith('image/')) {
+                try {
+                    // Aggressive compression: 800px max width, 50% quality
+                    const compressedImage = await compressImage(file, 800, 0.5);
+                    reversalImages.push(compressedImage);
+                } catch (error) {
+                    console.error('Error processing image:', error);
+                }
+            }
         }
+        
+        updateReversalImagePreviews();
+    }
+    
+    function updateReversalImagePreviews() {
+        const preview = document.getElementById('reversalImagePreview');
+        const uploadText = document.getElementById('reversalImageUploadText');
+        
+        if (reversalImages.length > 0) {
+            preview.style.display = 'block';
+            preview.innerHTML = reversalImages.map((img, index) => `
+                <div style="position: relative; display: inline-block; margin: 5px;">
+                    <img src="${img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
+                    <button onclick="removeReversalImage(${index})" type="button" style="position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; background: #ff4444; color: white; border: none; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
+                </div>
+            `).join('');
+            uploadText.textContent = `📸 ${reversalImages.length} image(s) - Tap to add more`;
+        } else {
+            preview.style.display = 'none';
+            preview.innerHTML = '';
+            uploadText.textContent = 'Tap to upload images';
+        }
+    }
+    
+    function removeReversalImage(index) {
+        reversalImages.splice(index, 1);
+        updateReversalImagePreviews();
     }
 
     async function saveReversal() {
@@ -3159,7 +3188,7 @@
             date: date,
             time: time,
             notes: notes,
-            image: reversalImage,
+            images: [...reversalImages], // Changed to array
             timestamp: new Date().toISOString()
         };
 
@@ -3200,19 +3229,33 @@
             return;
         }
 
-        container.innerHTML = reversals.map(reversal => `
-            <div class="reversal-item">
-                <div class="reversal-header">
-                    <div class="reversal-date">${formatDate(reversal.date)}${reversal.time ? ' • ' + reversal.time : ''}</div>
-                    <div style="display: flex; gap: 10px;">
-                        <button class="reversal-edit" onclick="editReversal(${reversal.id})" style="background: transparent; border: none; color: #8e8e8e; font-size: 18px; cursor: pointer; padding: 0; width: 32px; height: 32px;">✎</button>
-                        <button class="reversal-delete" onclick="deleteReversal(${reversal.id})">×</button>
+        container.innerHTML = reversals.map(reversal => {
+            // Support both old single image and new multiple images
+            const images = reversal.images || (reversal.image ? [reversal.image] : []);
+            
+            return `
+                <div class="reversal-item">
+                    <div class="reversal-header">
+                        <div class="reversal-date">${formatDate(reversal.date)}${reversal.time ? ' • ' + reversal.time : ''}</div>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="reversal-edit" onclick="editReversal(${reversal.id})" style="background: transparent; border: none; color: #8e8e8e; font-size: 18px; cursor: pointer; padding: 0; width: 32px; height: 32px;">✎</button>
+                            <button class="reversal-delete" onclick="deleteReversal(${reversal.id})">×</button>
+                        </div>
                     </div>
+                    ${images.length > 0 ? `
+                        <div class="entry-images" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; gap: 0; scrollbar-width: none;">
+                            ${images.map(img => `<img src="${img}" class="reversal-image" onclick="openImageViewer('${img}')" style="width: 100%; min-width: 100%; scroll-snap-align: start; cursor: pointer;" alt="Pattern">`).join('')}
+                        </div>
+                        ${images.length > 1 ? `
+                            <div style="display: flex; justify-content: center; gap: 6px; padding: 12px 0;">
+                                ${images.map((_, i) => `<div style="width: 6px; height: 6px; border-radius: 50%; background: ${i === 0 ? '#00ff88' : '#3a3a3a'};"></div>`).join('')}
+                            </div>
+                        ` : ''}
+                    ` : ''}
+                    ${reversal.notes ? `<div class="reversal-notes" style="white-space: pre-wrap;">${escapeHtml(reversal.notes)}</div>` : ''}
                 </div>
-                ${reversal.image ? `<img src="${reversal.image}" class="reversal-image" alt="Pattern">` : ''}
-                ${reversal.notes ? `<div class="reversal-notes" style="white-space: pre-wrap;">${escapeHtml(reversal.notes)}</div>` : ''}
-            </div>
-        `).join('');
+            `;
+        }).join('');
     }
 
     // Load reversals on page load
@@ -3239,11 +3282,11 @@
             </div>
 
             <div class="form-group">
-                <label class="form-label">Screenshot (Optional)</label>
+                <label class="form-label">Screenshots (Optional)</label>
                 <div class="image-upload" onclick="document.getElementById('reversalImageInput').click()">
                     <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
-                    <div style="color: #8e8e8e; font-weight: 600;">Tap to upload image</div>
-                    <input type="file" id="reversalImageInput" accept="image/*" onchange="handleReversalImage(event)" style="display: none;">
+                    <div style="color: #8e8e8e; font-weight: 600;" id="reversalImageUploadText">Tap to upload images</div>
+                    <input type="file" id="reversalImageInput" accept="image/*" multiple onchange="handleReversalImages(event)" style="display: none;">
                 </div>
                 <div id="reversalImagePreview" style="display: none; margin-top: 15px;"></div>
             </div>
