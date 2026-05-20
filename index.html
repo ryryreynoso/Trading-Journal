@@ -1567,18 +1567,18 @@
     import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, setPersistence, browserLocalPersistence } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
     import { getFirestore, collection, doc, getDoc, setDoc, deleteDoc, getDocs, query, orderBy, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 
-    // Fixed user credentials for persistence
-    const FIREBASE_EMAIL = "user@trading-journal.app";
-    const FIREBASE_PASSWORD = "trading-journal-2025-secure";
+    // Do not commit Firebase credentials. Configure private deployments outside this file.
+    const FIREBASE_EMAIL = "";
+    const FIREBASE_PASSWORD = "";
 
     // Firebase configuration
     const firebaseConfig = {
-        apiKey: "AIzaSyAygHXlc-L9WVDxO6I-C0NLNKzFAgBRAzg",
-        authDomain: "trading-journal-b1734.firebaseapp.com",
-        projectId: "trading-journal-b1734",
-        storageBucket: "trading-journal-b1734.firebasestorage.app",
-        messagingSenderId: "271809620729",
-        appId: "1:271809620729:web:c70b1e8ec857cf9dc8d028"
+        apiKey: "",
+        authDomain: "",
+        projectId: "",
+        storageBucket: "",
+        messagingSenderId: "",
+        appId: ""
     };
 
     // Initialize Firebase
@@ -1588,7 +1588,7 @@
     window.currentUser = null;
     window.useFirebase = false;
 
-    if (firebaseConfig.apiKey !== "YOUR_API_KEY") {
+    if (firebaseConfig.apiKey && FIREBASE_EMAIL && FIREBASE_PASSWORD) {
         try {
             window.app = initializeApp(firebaseConfig);
             window.auth = getAuth(window.app);
@@ -1680,9 +1680,8 @@
 </script>
 
 <script>
-    // Password Protection - Enter once and never again
-    // Safe because GitHub repo is private
-    const APP_PASSWORD = "trading2025"; // Change this to your desired password
+    // Client-side passwords are visible in public source, so access control belongs server-side.
+    const APP_PASSWORD = "";
     
     function checkAccess() {
         const savedAuth = localStorage.getItem('trading-journal-authenticated');
@@ -1692,6 +1691,10 @@
             return true;
         }
         
+        if (!APP_PASSWORD) {
+            return true;
+        }
+
         // Otherwise, prompt for password
         const password = prompt('🔒 Enter password to access Trading Journal:');
         
