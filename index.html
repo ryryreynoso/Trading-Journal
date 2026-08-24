@@ -13,10 +13,10 @@
 <meta name="theme-color" content="#000000">
 
 <!-- App Icon - Different filename to bypass cache -->
-<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260824-1559">
-<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260824-1559">
-<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260824-1559">
-<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260824-1559">
+<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260824-1608">
+<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260824-1608">
+<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260824-1608">
+<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260824-1608">
 
 <style>
     * {
@@ -1312,7 +1312,7 @@
                 </div>
             </div>
         </div>
-        <div class="app-updated">Updated Aug 24, 2026 3:59 PM</div>
+        <div class="app-updated">Updated Aug 24, 2026 4:08 PM</div>
     </div>
 
 <!-- Content Wrapper -->
@@ -1803,6 +1803,12 @@
     }
 
     const ENTRY_STORAGE_KEY = 'tradingJournal';
+    const ENTRY_LEGACY_STORAGE_KEYS = [
+        'tradingJournalEntries',
+        'tradingJournalData',
+        'tjEntries',
+        'journalEntries'
+    ];
 
     function sortEntriesByNewestFirst(list) {
         list.sort((a, b) => {
@@ -1813,17 +1819,55 @@
         return list;
     }
 
-    function readLocalEntries() {
-        const saved = localStorage.getItem(ENTRY_STORAGE_KEY);
+    function readEntriesFromStorageKey(key, { quiet = false } = {}) {
+        const saved = localStorage.getItem(key);
         if (!saved) return [];
-
+        
         try {
             const parsed = JSON.parse(saved);
-            return Array.isArray(parsed) ? parsed : [];
+            if (Array.isArray(parsed)) return parsed;
+            if (parsed && Array.isArray(parsed.entries)) return parsed.entries;
+            if (parsed && Array.isArray(parsed.trades)) return parsed.trades;
+            if (parsed && Array.isArray(parsed.journal)) return parsed.journal;
+            return [];
         } catch (error) {
-            console.error('❌ Could not parse local journal data:', error);
+            if (!quiet) {
+                console.error(`❌ Could not parse local journal data from ${key}:`, error);
+            }
             return [];
         }
+    }
+
+    function looksLikeTradeEntry(entry) {
+        return entry && typeof entry === 'object' && (
+            entry.date ||
+            entry.time ||
+            entry.symbol ||
+            entry.marketStructure ||
+            entry.analysisResult ||
+            entry.balance != null
+        );
+    }
+
+    function readLocalEntries() {
+        const keysToRead = new Set([ENTRY_STORAGE_KEY, ...ENTRY_LEGACY_STORAGE_KEYS]);
+        
+        // Rescue older same-domain saves even if the key name changed.
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (!key || key === 'tradingJournalReversals' || key === 'tradingJournalNotes') continue;
+            const rescuedEntries = readEntriesFromStorageKey(key, { quiet: true }).filter(looksLikeTradeEntry);
+            if (rescuedEntries.length > 0) {
+                keysToRead.add(key);
+            }
+        }
+
+        const allEntries = [];
+        keysToRead.forEach(key => {
+            allEntries.push(...readEntriesFromStorageKey(key).filter(looksLikeTradeEntry));
+        });
+
+        return mergeEntries([], allEntries);
     }
 
     function mergeEntries(localEntries, remoteEntries) {
@@ -1839,7 +1883,9 @@
 
     function persistEntriesLocally() {
         try {
-            localStorage.setItem(ENTRY_STORAGE_KEY, JSON.stringify(entries));
+            const serializedEntries = JSON.stringify(entries);
+            localStorage.setItem(ENTRY_STORAGE_KEY, serializedEntries);
+            localStorage.setItem('tradingJournalLastSavedAt', new Date().toISOString());
             return true;
         } catch (error) {
             console.error('❌ Could not save journal to localStorage:', error);
@@ -1865,6 +1911,9 @@
         if (localEntries.length > 0) {
             // Has local data - use it
             entries = sortEntriesByNewestFirst(localEntries);
+            if (readEntriesFromStorageKey(ENTRY_STORAGE_KEY).length !== entries.length) {
+                persistEntriesLocally();
+            }
             console.log(`✅ Loaded ${entries.length} entries from localStorage`);
             updateDisplay();
         } else {
@@ -1974,12 +2023,12 @@
             return;
         }
         
-        const confirmed = confirm('Load data from cloud? This will replace your local data.');
+        const confirmed = confirm('Load data from cloud and merge it with this phone? Existing local entries stay saved.');
         if (!confirmed) return;
         
         try {
             console.log('📥 Manually loading from Firebase...');
-            await loadEntriesFromFirebase({ mergeLocal: false });
+            await loadEntriesFromFirebase({ mergeLocal: true });
             await loadNotes();
             await loadReversals();
             alert('✅ Data loaded from Firebase successfully!');
