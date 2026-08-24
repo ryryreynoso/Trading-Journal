@@ -52,6 +52,16 @@
         border-bottom: none;
     }
 
+    .app-updated {
+        text-align: center;
+        color: #8e8e8e;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+    }
+
     .balance-display {
         text-align: center;
         margin-bottom: 5px;
@@ -166,7 +176,7 @@
     /* Main Content Area */
     .content-wrapper {
         position: fixed;
-        top: 105px;
+        top: 118px;
         left: 0;
         right: 0;
         bottom: 0;
@@ -638,6 +648,14 @@
 
     .sync-btn:active {
         opacity: 0.7;
+    }
+
+    .stats-reset-info {
+        color: #8e8e8e;
+        font-size: 12px;
+        font-weight: 600;
+        margin: -12px 0 18px;
+        min-height: 16px;
     }
 
     .stats-grid {
@@ -1236,6 +1254,7 @@
 <body>
     <!-- Header -->
     <div class="header">
+        <div class="app-updated">Updated Aug 24, 2026 3:55 PM</div>
         <div class="balance-display">
             <div class="balance-amount" id="totalBalance">$0</div>
             <div class="balance-change" id="balanceChange"></div>
@@ -1364,6 +1383,12 @@
         <div class="stats-header">
             <h2 class="stats-title">Trading Statistics</h2>
             <div style="display: flex; gap: 8px;">
+                <button class="sync-btn" onclick="resetStatsFromToday()" style="padding: 8px 16px; background: #fff; color: #000; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
+                    Reset
+                </button>
+                <button class="sync-btn" id="clearStatsResetBtn" onclick="clearStatsReset()" style="display: none; padding: 8px 16px; background: #262626; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
+                    Clear
+                </button>
                 <button class="sync-btn" onclick="loadFromFirebaseManually()" style="padding: 8px 16px; background: #4a9eff; color: #fff; border: none; border-radius: 8px; font-weight: 600; font-size: 12px;">
                     ↓ Load
                 </button>
@@ -1372,6 +1397,7 @@
                 </button>
             </div>
         </div>
+        <div class="stats-reset-info" id="statsResetInfo"></div>
         
         <div class="stats-grid">
             <div class="stat-card">
@@ -1628,7 +1654,7 @@
                     window.currentUser = user;
                     console.log("✅ User authenticated:", user.uid);
                     
-                    loadEntriesFromFirebase();
+                    loadEntriesFromFirebase({ mergeLocal: true });
                     loadNotes();
                     loadReversals();
                 }
@@ -1720,6 +1746,7 @@
 
     // Data variables
     let entries = [];
+    let statsResetDate = localStorage.getItem('tradingJournalStatsResetDate') || null;
     let currentView = 'scroll';
     let touchStartX = 0;
     let touchEndX = 0;
@@ -1779,26 +1806,76 @@
         });
     }
 
+    const ENTRY_STORAGE_KEY = 'tradingJournal';
+
+    function sortEntriesByNewestFirst(list) {
+        list.sort((a, b) => {
+            const dateCompare = new Date(b.date) - new Date(a.date);
+            if (dateCompare !== 0) return dateCompare;
+            return (b.time || '').localeCompare(a.time || '');
+        });
+        return list;
+    }
+
+    function readLocalEntries() {
+        const saved = localStorage.getItem(ENTRY_STORAGE_KEY);
+        if (!saved) return [];
+
+        try {
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.error('❌ Could not parse local journal data:', error);
+            return [];
+        }
+    }
+
+    function mergeEntries(localEntries, remoteEntries) {
+        const byId = new Map();
+
+        [...remoteEntries, ...localEntries].forEach(entry => {
+            if (!entry || entry.id == null) return;
+            byId.set(entry.id.toString(), entry);
+        });
+
+        return sortEntriesByNewestFirst([...byId.values()]);
+    }
+
+    function persistEntriesLocally() {
+        try {
+            localStorage.setItem(ENTRY_STORAGE_KEY, JSON.stringify(entries));
+            return true;
+        } catch (error) {
+            console.error('❌ Could not save journal to localStorage:', error);
+            const isQuotaError = error && (
+                error.name === 'QuotaExceededError' ||
+                error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                error.code === 22 ||
+                error.code === 1014
+            );
+
+            alert(isQuotaError
+                ? 'Storage is full, so this entry could not be saved locally. Delete a few older screenshots or use fewer/lower-resolution images, then try again.'
+                : 'This entry could not be saved locally: ' + error.message
+            );
+            return false;
+        }
+    }
+
     // Load data from localStorage
     function loadData() {
-        // Check if localStorage has data
-        const saved = localStorage.getItem('tradingJournal');
-        
-        if (saved) {
+        const localEntries = readLocalEntries();
+
+        if (localEntries.length > 0) {
             // Has local data - use it
-            entries = JSON.parse(saved);
-            entries.sort((a, b) => {
-                const dateCompare = new Date(b.date) - new Date(a.date);
-                if (dateCompare !== 0) return dateCompare;
-                return (b.time || '').localeCompare(a.time || '');
-            });
+            entries = sortEntriesByNewestFirst(localEntries);
             console.log(`✅ Loaded ${entries.length} entries from localStorage`);
             updateDisplay();
         } else {
             // No local data - try Firebase if available
             if (window.useFirebase && window.currentUser) {
                 console.log('📥 No local data, loading from Firebase...');
-                loadEntriesFromFirebase();
+                loadEntriesFromFirebase({ mergeLocal: true });
             } else {
                 console.log('ℹ️ No data found');
                 updateDisplay();
@@ -1809,7 +1886,10 @@
     // Save data to localStorage or Firebase
     async function saveData(singleEntry = null) {
         // ALWAYS save to localStorage first (instant, guaranteed)
-        localStorage.setItem('tradingJournal', JSON.stringify(entries));
+        const savedLocally = persistEntriesLocally();
+        if (!savedLocally) {
+            throw new Error('Local save failed');
+        }
         
         // Also try to auto-sync to Firebase
         if (window.useFirebase && window.currentUser) {
@@ -1903,7 +1983,7 @@
         
         try {
             console.log('📥 Manually loading from Firebase...');
-            await loadEntriesFromFirebase();
+            await loadEntriesFromFirebase({ mergeLocal: false });
             await loadNotes();
             await loadReversals();
             alert('✅ Data loaded from Firebase successfully!');
@@ -1942,7 +2022,7 @@
             }
             
             // Always fallback to localStorage
-            localStorage.setItem('tradingJournal', JSON.stringify(entries));
+            persistEntriesLocally();
         }
     }
     
@@ -2009,7 +2089,7 @@
         }, 8000);
     }
 
-    async function loadEntriesFromFirebase() {
+    async function loadEntriesFromFirebase({ mergeLocal = true } = {}) {
         if (!window.useFirebase || !window.currentUser) {
             console.log("⚠️ Firebase not available, loading from localStorage");
             return;
@@ -2022,19 +2102,16 @@
             
             // One-time fetch (not real-time listener to avoid quota)
             const snapshot = await window.getDocs(q);
-            entries = [];
+            const remoteEntries = [];
             snapshot.forEach((doc) => {
-                entries.push(doc.data());
+                remoteEntries.push(doc.data());
             });
-            entries.sort((a, b) => {
-                const dateCompare = new Date(b.date) - new Date(a.date);
-                if (dateCompare !== 0) return dateCompare;
-                return (b.time || '').localeCompare(a.time || '');
-            });
-            console.log(`✅ Loaded ${entries.length} entries from Firebase`);
+
+            entries = mergeLocal ? mergeEntries(readLocalEntries(), remoteEntries) : sortEntriesByNewestFirst(remoteEntries);
+            console.log(`✅ Loaded ${entries.length} entries from Firebase${mergeLocal ? ' and localStorage' : ''}`);
             
             // Save to localStorage for offline use
-            localStorage.setItem('tradingJournal', JSON.stringify(entries));
+            persistEntriesLocally();
             
             updateDisplay();
         } catch (error) {
@@ -2410,6 +2487,7 @@
     }
 
     function updateDisplay() {
+        updateStatsResetInfo();
         updateBalanceDisplay();
         updateWinRate();
         updateScrollFeed();
@@ -2418,26 +2496,78 @@
         updateStatistics(); // New statistics update
     }
 
+    function isEntryInStatsWindow(entry) {
+        return !statsResetDate || entry.date >= statsResetDate;
+    }
+
+    function getStatsEntries() {
+        return entries.filter(isEntryInStatsWindow);
+    }
+
+    function getBalanceBaseline(entriesWithBalance) {
+        if (!statsResetDate || entriesWithBalance.length === 0) return 0;
+
+        const sorted = [...entriesWithBalance].sort((a, b) => new Date(a.date + ' ' + (a.time || '00:00')) - new Date(b.date + ' ' + (b.time || '00:00')));
+        const afterReset = sorted.filter(isEntryInStatsWindow);
+        return afterReset.length > 0 ? afterReset[0].balance : 0;
+    }
+
+    function updateStatsResetInfo() {
+        const info = document.getElementById('statsResetInfo');
+        const clearBtn = document.getElementById('clearStatsResetBtn');
+        if (!info || !clearBtn) return;
+
+        if (statsResetDate) {
+            info.textContent = `Stats reset from ${formatDate(statsResetDate)}. Older trades stay saved but do not count here.`;
+            clearBtn.style.display = 'inline-block';
+        } else {
+            info.textContent = '';
+            clearBtn.style.display = 'none';
+        }
+    }
+
+    function resetStatsFromToday() {
+        const today = new Date().toISOString().split('T')[0];
+        if (!confirm(`Reset balance and win rate to 0 starting ${formatDate(today)}? Existing entries stay saved.`)) {
+            return;
+        }
+
+        statsResetDate = today;
+        localStorage.setItem('tradingJournalStatsResetDate', statsResetDate);
+        updateDisplay();
+    }
+
+    function clearStatsReset() {
+        if (!confirm('Clear the stats reset and count all saved entries again?')) {
+            return;
+        }
+
+        statsResetDate = null;
+        localStorage.removeItem('tradingJournalStatsResetDate');
+        updateDisplay();
+    }
+
     function updateBalanceDisplay() {
         const totalBalanceEl = document.getElementById('totalBalance');
         const balanceChangeEl = document.getElementById('balanceChange');
         
-        // Find the most recent entry with a balance
-        const entriesWithBalance = entries.filter(e => e.balance != null);
+        const allEntriesWithBalance = entries.filter(e => e.balance != null);
+        const entriesWithBalance = allEntriesWithBalance.filter(isEntryInStatsWindow);
         
         if (entriesWithBalance.length === 0) {
-            totalBalanceEl.textContent = '$0';
+            totalBalanceEl.textContent = '$0.00';
             balanceChangeEl.textContent = '';
             return;
         }
         
-        const currentBalance = entriesWithBalance[0].balance;
+        const baseline = getBalanceBaseline(allEntriesWithBalance);
+        const currentBalance = statsResetDate ? entriesWithBalance[0].balance - baseline : entriesWithBalance[0].balance;
         totalBalanceEl.textContent = '$' + currentBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
         
         if (entriesWithBalance.length > 1) {
-            const previousBalance = entriesWithBalance[1].balance;
+            const previousBalance = statsResetDate ? entriesWithBalance[1].balance - baseline : entriesWithBalance[1].balance;
             const change = currentBalance - previousBalance;
-            const changePercent = ((change / previousBalance) * 100).toFixed(2);
+            const changePercent = previousBalance !== 0 ? ((change / previousBalance) * 100).toFixed(2) : '0.00';
             
             balanceChangeEl.className = 'balance-change ' + (change >= 0 ? 'positive' : 'negative');
             balanceChangeEl.textContent = (change >= 0 ? '+' : '') + '$' + change.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' (' + changePercent + '%)';
@@ -2448,10 +2578,11 @@
 
     function updateWinRate() {
         const winRateEl = document.getElementById('winRateValue');
+        const statsEntries = getStatsEntries();
         
         // Count correct and wrong entries
-        const correctEntries = entries.filter(e => e.analysisResult === 'Correct');
-        const wrongEntries = entries.filter(e => e.analysisResult === 'Wrong');
+        const correctEntries = statsEntries.filter(e => e.analysisResult === 'Correct');
+        const wrongEntries = statsEntries.filter(e => e.analysisResult === 'Wrong');
         const totalAnalyzed = correctEntries.length + wrongEntries.length;
         
         if (totalAnalyzed === 0) {
@@ -2476,16 +2607,18 @@
     let balanceChart = null; // Store chart instance
 
     function updateStatistics() {
+        const statsEntries = getStatsEntries();
+
         // Win Rate
-        const correctEntries = entries.filter(e => e.analysisResult === 'Correct');
-        const wrongEntries = entries.filter(e => e.analysisResult === 'Wrong');
+        const correctEntries = statsEntries.filter(e => e.analysisResult === 'Correct');
+        const wrongEntries = statsEntries.filter(e => e.analysisResult === 'Wrong');
         const totalAnalyzed = correctEntries.length + wrongEntries.length;
         
         const winRate = totalAnalyzed > 0 ? ((correctEntries.length / totalAnalyzed) * 100).toFixed(0) : 0;
         document.getElementById('statsWinRate').textContent = winRate + '%';
         
         // Average Win/Loss per day (based on daily balance changes)
-        const entriesWithBalance = entries.filter(e => e.balance != null).sort((a, b) => new Date(a.date + ' ' + a.time) - new Date(b.date + ' ' + b.time));
+        const entriesWithBalance = statsEntries.filter(e => e.balance != null).sort((a, b) => new Date(a.date + ' ' + (a.time || '00:00')) - new Date(b.date + ' ' + (b.time || '00:00')));
         
         // Group by date and calculate daily P/L
         const dailyPL = {};
@@ -2520,12 +2653,12 @@
         avgDailyEl.className = 'stat-value ' + (avgDaily >= 0 ? 'positive' : 'negative');
         
         // Average Safe Stop Loss
-        const stopLossEntries = entries.filter(e => e.safeStopLoss != null && e.safeStopLoss > 0);
+        const stopLossEntries = statsEntries.filter(e => e.safeStopLoss != null && e.safeStopLoss > 0);
         const avgStop = stopLossEntries.length > 0 ? stopLossEntries.reduce((sum, e) => sum + e.safeStopLoss, 0) / stopLossEntries.length : 0;
         document.getElementById('statsAvgStop').textContent = avgStop > 0 ? avgStop.toFixed(2) + ' pts' : '-- pts';
         
         // Average Target Run (convert ticks to points if needed: 4 ticks = 1 point for ES)
-        const runEntries = entries.filter(e => e.targetRun != null && e.targetRun > 0);
+        const runEntries = statsEntries.filter(e => e.targetRun != null && e.targetRun > 0);
         let totalPoints = 0;
         runEntries.forEach(e => {
             if (e.targetRunUnit === 'ticks') {
@@ -2538,10 +2671,10 @@
         document.getElementById('statsAvgRun').textContent = avgRun > 0 ? avgRun.toFixed(2) + ' pts' : '-- pts';
         
         // Update Balance Chart
-        updateBalanceChart(entriesWithBalance);
+        updateBalanceChart(entriesWithBalance, getBalanceBaseline(entries.filter(e => e.balance != null)));
     }
 
-    function updateBalanceChart(entriesWithBalance) {
+    function updateBalanceChart(entriesWithBalance, baseline = 0) {
         const canvas = document.getElementById('balanceChart');
         const ctx = canvas.getContext('2d');
         
@@ -2564,7 +2697,7 @@
             const date = new Date(e.date + ' ' + e.time);
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         });
-        const balances = entriesWithBalance.map(e => e.balance);
+        const balances = entriesWithBalance.map(e => statsResetDate ? e.balance - baseline : e.balance);
         
         // Create gradient
         const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -3160,17 +3293,211 @@
     // Reversal Patterns functions
     let reversalImages = []; // Changed from single to array
     let editingReversalId = null;
+    let reversalImageDbPromise = null;
+
+    function openReversalImageDb() {
+        if (reversalImageDbPromise) return reversalImageDbPromise;
+
+        reversalImageDbPromise = new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+                reject(new Error('IndexedDB is not available'));
+                return;
+            }
+
+            const request = indexedDB.open('TradingJournalReversalImages', 1);
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('images')) {
+                    db.createObjectStore('images');
+                }
+            };
+            request.onsuccess = function(event) {
+                resolve(event.target.result);
+            };
+            request.onerror = function() {
+                reject(request.error);
+            };
+        });
+
+        return reversalImageDbPromise;
+    }
+
+    async function putReversalImage(key, dataUrl) {
+        const db = await openReversalImageDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('images', 'readwrite');
+            tx.objectStore('images').put(dataUrl, key);
+            tx.oncomplete = resolve;
+            tx.onerror = function() {
+                reject(tx.error);
+            };
+        });
+    }
+
+    async function getReversalImage(key) {
+        const db = await openReversalImageDb();
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('images', 'readonly');
+            const request = tx.objectStore('images').get(key);
+            request.onsuccess = function() {
+                resolve(request.result || '');
+            };
+            request.onerror = function() {
+                reject(request.error);
+            };
+        });
+    }
+
+    function isReversalImageRef(image) {
+        return image && typeof image === 'object' && image.storage === 'indexedDB' && image.key;
+    }
+
+    async function resolveReversalImage(image) {
+        if (!image) return '';
+        if (typeof image === 'string') return image;
+        if (isReversalImageRef(image)) return getReversalImage(image.key);
+        return '';
+    }
+
+    async function storeReversalImages(reversalId, images) {
+        const storedImages = [];
+
+        for (let index = 0; index < images.length; index++) {
+            const image = images[index];
+            if (isReversalImageRef(image)) {
+                storedImages.push(image);
+                continue;
+            }
+
+            if (typeof image === 'string' && image.startsWith('data:image/')) {
+                try {
+                    const key = `reversal-${reversalId}-${Date.now()}-${index}`;
+                    await putReversalImage(key, image);
+                    storedImages.push({ storage: 'indexedDB', key });
+                } catch (error) {
+                    console.error('❌ Could not store reversal screenshot:', error);
+                }
+            }
+        }
+
+        return storedImages;
+    }
+
+    async function migrateReversalImagesToIndexedDB(reversalList) {
+        let changed = false;
+
+        for (const reversal of reversalList) {
+            const images = reversal.images || (reversal.image ? [reversal.image] : []);
+            if (!images.some(image => typeof image === 'string' && image.startsWith('data:image/'))) {
+                continue;
+            }
+
+            try {
+                reversal.images = await storeReversalImages(reversal.id || Date.now(), images);
+                delete reversal.image;
+                changed = true;
+            } catch (error) {
+                console.error('❌ Could not migrate reversal images:', error);
+            }
+        }
+
+        return changed;
+    }
+
+    function readLocalReversals() {
+        const saved = localStorage.getItem('tradingJournalReversals');
+        if (!saved) return [];
+
+        try {
+            const parsed = JSON.parse(saved);
+            return Array.isArray(parsed) ? parsed : [];
+        } catch (error) {
+            console.error('Error loading reversals:', error);
+            return [];
+        }
+    }
+
+    function mergeReversals(localReversals, remoteReversals) {
+        const byId = new Map();
+
+        [...remoteReversals, ...localReversals].forEach(reversal => {
+            if (!reversal || reversal.id == null) return;
+            byId.set(reversal.id.toString(), reversal);
+        });
+
+        return [...byId.values()].sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')) - new Date(a.date + ' ' + (a.time || '00:00')));
+    }
+
+    async function prepareReversalForFirebase(reversal) {
+        const images = reversal.images || (reversal.image ? [reversal.image] : []);
+        const resolvedImages = [];
+
+        for (const image of images) {
+            const resolved = await resolveReversalImage(image);
+            if (resolved) {
+                resolvedImages.push(resolved);
+            }
+        }
+
+        return {
+            ...reversal,
+            images: resolvedImages
+        };
+    }
+
+    function prepareReversalMetadataForFirebase(reversal) {
+        return {
+            id: reversal.id,
+            date: reversal.date,
+            time: reversal.time || '',
+            notes: reversal.notes || '',
+            timestamp: reversal.timestamp || new Date().toISOString(),
+            imageCount: (reversal.images || (reversal.image ? [reversal.image] : [])).length
+        };
+    }
+
+    async function loadReversalDocsFromFirebase() {
+        if (!window.useFirebase || !window.currentUser || !window.getDocs) {
+            return [];
+        }
+
+        const reversalsRef = window.collection(window.db, 'users', window.currentUser.uid, 'reversals');
+        const q = window.query(reversalsRef, window.orderBy('date', 'desc'));
+        const snapshot = await window.getDocs(q);
+        const remoteReversals = [];
+
+        snapshot.forEach((doc) => {
+            remoteReversals.push(doc.data());
+        });
+
+        return remoteReversals;
+    }
 
     async function loadReversals() {
+        const localReversals = readLocalReversals();
+        const migratedLocalImages = await migrateReversalImagesToIndexedDB(localReversals);
+
         // Try Firebase first
         if (window.useFirebase && window.currentUser && window.getDoc) {
             try {
+                const remoteReversalDocs = await loadReversalDocsFromFirebase();
+                if (remoteReversalDocs.length > 0) {
+                    reversals = mergeReversals(localReversals, remoteReversalDocs);
+                    await migrateReversalImagesToIndexedDB(reversals);
+                    saveReversalsLocally();
+                    console.log("✅ Loaded reversal entries from Firebase and localStorage");
+                    renderReversals();
+                    return;
+                }
+
                 const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'metadata', 'reversals');
                 const docSnap = await window.getDoc(docRef);
                 
                 if (docSnap.exists() && docSnap.data().reversals) {
-                    reversals = docSnap.data().reversals;
-                    console.log("✅ Loaded reversals from Firebase");
+                    reversals = mergeReversals(localReversals, docSnap.data().reversals);
+                    await migrateReversalImagesToIndexedDB(reversals);
+                    saveReversalsLocally();
+                    console.log("✅ Loaded reversals from Firebase and localStorage");
                     renderReversals();
                     return;
                 }
@@ -3180,27 +3507,84 @@
         }
         
         // Fallback to localStorage
-        const saved = localStorage.getItem('tradingJournalReversals');
-        if (saved) {
-            try {
-                reversals = JSON.parse(saved);
-            } catch (e) {
-                console.error('Error loading reversals:', e);
-                reversals = [];
-            }
+        reversals = localReversals;
+        if (migratedLocalImages) {
+            saveReversalsLocally();
         }
         renderReversals(); // Always render to show empty state or data
     }
 
-    async function saveReversals() {
-        // Save to localStorage
-        localStorage.setItem('tradingJournalReversals', JSON.stringify(reversals));
-        
-        // Save to Firebase
+    function saveReversalsLocally() {
+        try {
+            localStorage.setItem('tradingJournalReversals', JSON.stringify(reversals));
+            return true;
+        } catch (error) {
+            console.error('❌ Error saving reversals locally:', error);
+            const isQuotaError = error && (
+                error.name === 'QuotaExceededError' ||
+                error.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                error.code === 22 ||
+                error.code === 1014
+            );
+
+            alert(isQuotaError
+                ? 'Storage is full, so this reversal pattern could not be saved. Try removing one or more screenshots, then save again.'
+                : 'This reversal pattern could not be saved locally: ' + error.message
+            );
+            return false;
+        }
+
+    }
+
+    function upsertReversal(reversal) {
+        if (editingReversalId) {
+            const index = reversals.findIndex(r => r.id === editingReversalId);
+            if (index !== -1) {
+                reversals[index] = reversal;
+            } else {
+                reversals.unshift(reversal);
+            }
+        } else {
+            reversals.unshift(reversal);
+        }
+
+        reversals.sort((a, b) => new Date(b.date + ' ' + (b.time || '00:00')) - new Date(a.date + ' ' + (a.time || '00:00')));
+    }
+
+    async function attachReversalImagesAfterSave(reversalId, images) {
+        if (!images.length) return;
+
+        try {
+            const storedImages = await storeReversalImages(reversalId, images);
+            if (!storedImages.length) return;
+
+            const reversal = reversals.find(r => r.id === reversalId);
+            if (!reversal) return;
+
+            reversal.images = storedImages;
+            if (saveReversalsLocally()) {
+                renderReversals();
+                syncReversalsToFirebase();
+            }
+        } catch (error) {
+            console.error('❌ Could not attach reversal screenshots after save:', error);
+        }
+    }
+
+    async function syncReversalsToFirebase() {
         if (window.useFirebase && window.currentUser) {
             try {
+                for (const reversal of reversals) {
+                    const firebaseReversal = await prepareReversalForFirebase(reversal);
+                    const reversalRef = window.doc(window.db, 'users', window.currentUser.uid, 'reversals', reversal.id.toString());
+                    await window.setDoc(reversalRef, firebaseReversal);
+                }
+
                 const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'metadata', 'reversals');
-                await window.setDoc(docRef, { reversals: reversals });
+                await window.setDoc(docRef, {
+                    reversals: reversals.map(prepareReversalMetadataForFirebase),
+                    updatedAt: new Date().toISOString()
+                });
                 console.log("✅ Reversals saved to Firebase");
             } catch (error) {
                 console.error('❌ Error saving reversals to Firebase:', error);
@@ -3211,17 +3595,33 @@
         }
     }
 
+    async function saveReversals() {
+        if (!saveReversalsLocally()) {
+            throw new Error('Local reversal save failed');
+        }
+
+        await syncReversalsToFirebase();
+    }
+
     function openReversalModal() {
-        document.getElementById('reversalModal').style.display = 'flex';
+        const modal = document.getElementById('reversalModal');
+        if (!modal) return;
+
+        modal.style.display = 'block';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
         const today = new Date().toISOString().split('T')[0];
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         document.getElementById('reversalDate').value = today;
         document.getElementById('reversalTime').value = currentTime;
+        document.getElementById('reversalNotes').value = '';
+        reversalImages = [];
+        updateReversalImagePreviews();
         editingReversalId = null;
     }
 
-    function editReversal(reversalId) {
+    async function editReversal(reversalId) {
         const reversal = reversals.find(r => r.id === reversalId);
         if (!reversal) return;
         
@@ -3234,16 +3634,23 @@
         reversalImages = reversal.images || (reversal.image ? [reversal.image] : []);
         updateReversalImagePreviews();
         
-        document.getElementById('reversalModal').style.display = 'flex';
+        const modal = document.getElementById('reversalModal');
+        modal.style.display = 'block';
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
     }
 
     function closeReversalModal() {
-        document.getElementById('reversalModal').style.display = 'none';
+        const modal = document.getElementById('reversalModal');
+        modal.classList.remove('active');
+        modal.style.display = 'none';
+        document.body.style.overflow = '';
         document.getElementById('reversalForm').reset();
         reversalImages = []; // Clear images array
         editingReversalId = null;
         document.getElementById('reversalImagePreview').style.display = 'none';
         document.getElementById('reversalImagePreview').innerHTML = '';
+        document.getElementById('reversalImageUploadText').textContent = 'Tap to upload images';
     }
 
     async function handleReversalImages(e) {
@@ -3267,13 +3674,14 @@
         updateReversalImagePreviews();
     }
     
-    function updateReversalImagePreviews() {
+    async function updateReversalImagePreviews() {
         const preview = document.getElementById('reversalImagePreview');
         const uploadText = document.getElementById('reversalImageUploadText');
         
         if (reversalImages.length > 0) {
+            const previews = await Promise.all(reversalImages.map(resolveReversalImage));
             preview.style.display = 'block';
-            preview.innerHTML = reversalImages.map((img, index) => `
+            preview.innerHTML = previews.map((img, index) => `
                 <div style="position: relative; display: inline-block; margin: 5px;">
                     <img src="${img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;">
                     <button onclick="removeReversalImage(${index})" type="button" style="position: absolute; top: -8px; right: -8px; width: 24px; height: 24px; border-radius: 50%; background: #ff4444; color: white; border: none; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;">×</button>
@@ -3296,6 +3704,7 @@
         const date = document.getElementById('reversalDate').value;
         const time = document.getElementById('reversalTime').value;
         const notes = document.getElementById('reversalNotes').value;
+        const submitBtn = document.getElementById('saveReversalBtn');
 
         if (!date) {
             alert('Please select a date');
@@ -3307,35 +3716,58 @@
             date: date,
             time: time,
             notes: notes,
-            images: [...reversalImages], // Changed to array
+            images: [],
             timestamp: new Date().toISOString()
         };
+        const imagesToAttach = [...reversalImages];
 
-        if (editingReversalId) {
-            const index = reversals.findIndex(r => r.id === editingReversalId);
-            if (index !== -1) {
-                reversals[index] = reversal;
+        const previousReversals = [...reversals];
+
+        try {
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Saving...';
             }
-        } else {
-            reversals.unshift(reversal);
-        }
 
-        reversals.sort((a, b) => new Date(b.date) - new Date(a.date));
-        await saveReversals();
-        renderReversals();
-        closeReversalModal();
+            upsertReversal(reversal);
+            if (!saveReversalsLocally()) {
+                throw new Error('Local reversal save failed');
+            }
+
+            renderReversals();
+            closeReversalModal();
+            syncReversalsToFirebase();
+            attachReversalImagesAfterSave(reversal.id, imagesToAttach);
+        } catch (error) {
+            reversals = previousReversals;
+            console.error('❌ Error saving reversal pattern:', error);
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Save Pattern';
+            }
+        }
     }
 
     async function deleteReversal(reversalId) {
         if (confirm('Delete this reversal pattern?')) {
             reversals = reversals.filter(r => r.id !== reversalId);
             await saveReversals();
+            if (window.useFirebase && window.currentUser && window.deleteDoc) {
+                try {
+                    const reversalRef = window.doc(window.db, 'users', window.currentUser.uid, 'reversals', reversalId.toString());
+                    await window.deleteDoc(reversalRef);
+                } catch (error) {
+                    console.error('❌ Error deleting reversal from Firebase:', error);
+                }
+            }
             renderReversals();
         }
     }
 
     function renderReversals() {
         const container = document.getElementById('reversalsContainer');
+        if (!container) return;
 
         if (reversals.length === 0) {
             container.innerHTML = `
@@ -3353,7 +3785,7 @@
             const images = reversal.images || (reversal.image ? [reversal.image] : []);
             
             return `
-                <div class="reversal-item">
+                <div class="reversal-item" data-reversal-id="${reversal.id}">
                     <div class="reversal-header">
                         <div class="reversal-date">${formatDate(reversal.date)}${reversal.time ? ' • ' + reversal.time : ''}</div>
                         <div style="display: flex; gap: 10px;">
@@ -3363,7 +3795,7 @@
                     </div>
                     ${images.length > 0 ? `
                         <div class="entry-images" style="display: flex; overflow-x: auto; scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch; gap: 0; scrollbar-width: none;">
-                            ${images.map(img => `<img src="${img}" class="reversal-image" onclick="openImageViewer('${img}')" style="width: 100%; min-width: 100%; scroll-snap-align: start; cursor: pointer;" alt="Pattern">`).join('')}
+                            ${images.map((_, index) => `<img src="" data-reversal-image-index="${index}" class="reversal-image" style="width: 100%; min-width: 100%; scroll-snap-align: start; cursor: pointer;" alt="Pattern">`).join('')}
                         </div>
                         ${images.length > 1 ? `
                             <div style="display: flex; justify-content: center; gap: 6px; padding: 12px 0;">
@@ -3375,10 +3807,49 @@
                 </div>
             `;
         }).join('');
+
+        hydrateReversalImages();
     }
 
-    // Load reversals on page load
-    loadReversals();
+    async function hydrateReversalImages() {
+        for (const reversal of reversals) {
+            const item = document.querySelector(`.reversal-item[data-reversal-id="${reversal.id}"]`);
+            if (!item) continue;
+
+            const images = reversal.images || (reversal.image ? [reversal.image] : []);
+            const imageElements = item.querySelectorAll('[data-reversal-image-index]');
+
+            for (const imgEl of imageElements) {
+                const index = Number(imgEl.dataset.reversalImageIndex);
+                const src = await resolveReversalImage(images[index]);
+                imgEl.src = src;
+                imgEl.onclick = function() {
+                    openImageViewer(src);
+                };
+            }
+        }
+    }
+
+    function setupReversalForm() {
+        const form = document.getElementById('reversalForm');
+        if (form) {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                saveReversal();
+            });
+        }
+
+        const imageInput = document.getElementById('reversalImageInput');
+        if (imageInput) {
+            imageInput.addEventListener('change', handleReversalImages);
+        }
+    }
+
+    // Load reversals after the modal/form HTML exists.
+    document.addEventListener('DOMContentLoaded', function() {
+        setupReversalForm();
+        loadReversals();
+    });
 </script>
 
 <!-- Reversal Pattern Modal -->
@@ -3389,7 +3860,7 @@
             <button class="close-btn" onclick="closeReversalModal()">&times;</button>
         </div>
 
-        <form id="reversalForm" onsubmit="event.preventDefault(); saveReversal();">
+        <form id="reversalForm">
             <div class="form-group">
                 <label class="form-label">Date</label>
                 <input type="date" id="reversalDate" class="form-input" required>
@@ -3405,7 +3876,7 @@
                 <div class="image-upload" onclick="document.getElementById('reversalImageInput').click()">
                     <div style="font-size: 40px; margin-bottom: 10px;">📸</div>
                     <div style="color: #8e8e8e; font-weight: 600;" id="reversalImageUploadText">Tap to upload images</div>
-                    <input type="file" id="reversalImageInput" accept="image/*" multiple onchange="handleReversalImages(event)" style="display: none;">
+                    <input type="file" id="reversalImageInput" accept="image/*" multiple style="display: none;">
                 </div>
                 <div id="reversalImagePreview" style="display: none; margin-top: 15px;"></div>
             </div>
@@ -3415,7 +3886,7 @@
                 <textarea id="reversalNotes" class="form-input" rows="4" placeholder="Describe the reversal pattern..." style="white-space: pre-wrap;"></textarea>
             </div>
 
-            <button type="submit" class="submit-btn">Save Pattern</button>
+            <button type="button" class="submit-btn" id="saveReversalBtn" onclick="saveReversal()">Save Pattern</button>
         </form>
     </div>
 </div>
