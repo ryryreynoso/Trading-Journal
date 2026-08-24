@@ -1,14 +1,23 @@
 {
   "name": "Trading Journal",
   "short_name": "Trading",
+  "start_url": "/Trading-Journal/?v=20260824-1559",
+  "scope": "/Trading-Journal/",
   "display": "standalone",
   "background_color": "#000000",
   "theme_color": "#000000",
   "icons": [
     {
-      "src": "app-icon.png",
+      "src": "/Trading-Journal/apple-touch-icon.png?v=20260824-1559",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/Trading-Journal/app-icon.png?v=20260824-1559",
       "sizes": "1024x1024",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     }
   ]
 }
