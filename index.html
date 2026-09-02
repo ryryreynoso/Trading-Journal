@@ -13,10 +13,10 @@
 <meta name="theme-color" content="#000000">
 
 <!-- App Icon - Different filename to bypass cache -->
-<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260902-0949">
-<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260902-0949">
-<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260902-0949">
-<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260902-0949">
+<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260902-1400">
+<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260902-1400">
+<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260902-1400">
+<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260902-1400">
 
 <style>
     * {
@@ -890,11 +890,27 @@
         flex: 1;
     }
 
+    .calendar-months {
+        padding-bottom: 30px;
+    }
+
+    .calendar-month-section {
+        scroll-margin-top: 12px;
+    }
+
+    .calendar-month-title {
+        color: #fff;
+        font-size: 22px;
+        font-weight: 800;
+        letter-spacing: -0.3px;
+        padding: 4px 15px 14px;
+    }
+
     .calendar-grid {
         display: grid;
         grid-template-columns: repeat(7, 1fr);
         gap: 8px;
-        margin-bottom: 30px;
+        margin-bottom: 26px;
         padding: 0 15px 20px;
     }
 
@@ -908,14 +924,18 @@
     }
 
     .calendar-day {
+        appearance: none;
+        -webkit-appearance: none;
         aspect-ratio: 1;
         display: flex;
         flex-direction: column;
         justify-content: center;
         align-items: center;
         background: #000;
+        color: #fff;
         border-radius: 14px;
         font-size: 14px;
+        font-family: inherit;
         position: relative;
         cursor: pointer;
         border: 1px solid #262626;
@@ -924,6 +944,11 @@
 
     .calendar-day.has-trade {
         border: 1px solid #fff;
+    }
+
+    .calendar-day.has-trade:active {
+        opacity: 0.72;
+        transform: scale(0.97);
     }
 
     .calendar-day.profit {
@@ -952,6 +977,25 @@
 
     .calendar-day-pnl.negative {
         color: #ff4444;
+    }
+
+    .day-entries-summary {
+        color: #8e8e8e;
+        font-size: 13px;
+        font-weight: 600;
+        margin: -14px 0 18px;
+    }
+
+    .day-entries-list .entry-card {
+        margin-bottom: 14px;
+    }
+
+    .day-entries-empty {
+        color: #8e8e8e;
+        text-align: center;
+        padding: 55px 16px;
+        font-size: 15px;
+        font-weight: 600;
     }
 
     /* Modal */
@@ -1312,7 +1356,7 @@
                 </div>
             </div>
         </div>
-        <div class="app-updated">v1.0.6 • Updated Sep 2, 2026 9:49 AM</div>
+        <div class="app-updated">v1.0.7 • Updated Sep 2, 2026 2:00 PM</div>
     </div>
 
 <!-- Content Wrapper -->
@@ -1438,6 +1482,20 @@
 
 <!-- Floating Add Button -->
 <button class="add-btn" onclick="openModal()">+</button>
+
+<!-- Calendar Day Entries Modal -->
+<div class="modal" id="calendarDayModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div>
+                <div class="modal-title" id="calendarDayTitle">Journal Entries</div>
+                <div class="day-entries-summary" id="calendarDaySummary"></div>
+            </div>
+            <button class="close-btn" onclick="closeCalendarDay()">&times;</button>
+        </div>
+        <div class="day-entries-list" id="calendarDayEntries"></div>
+    </div>
+</div>
 
 <!-- Add Entry Modal -->
 
@@ -2971,43 +3029,58 @@
         `}).join('');
     }
 
-    function updateCalendar() {
-        const container = document.getElementById('calendarContainer');
-        const monthDisplay = document.getElementById('calendarMonth');
-        
-        // Update month display
-        monthDisplay.textContent = currentCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-        
-        // Generate single month
-        container.innerHTML = generateMonthCalendar(currentCalendarMonth);
+    function getMonthKey(date) {
+        return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     }
 
-    function changeMonth(direction) {
-        // direction: -1 for previous month, 1 for next month
-        currentCalendarMonth = new Date(currentCalendarMonth.getFullYear(), currentCalendarMonth.getMonth() + direction, 1);
-        updateCalendar();
+    function addMonths(date, offset) {
+        return new Date(date.getFullYear(), date.getMonth() + offset, 1);
     }
 
-    function generateMonthCalendar(date) {
-        const year = date.getFullYear();
-        const month = date.getMonth();
-        
-        const firstDay = new Date(year, month, 1).getDay();
-        const daysInMonth = new Date(year, month + 1, 0).getDate();
-        
-        // Create a sorted list of entries by date
-        const sortedEntries = entries
+    function parseEntryDate(dateStr) {
+        const [year, month, day] = (dateStr || '').split('-').map(Number);
+        if (!year || !month || !day) return null;
+        return new Date(year, month - 1, day);
+    }
+
+    function getCalendarMonthRange(anchorDate) {
+        let start = addMonths(anchorDate, -12);
+        let end = addMonths(anchorDate, 12);
+
+        entries.forEach(entry => {
+            const entryDate = parseEntryDate(entry.date);
+            if (!entryDate) return;
+
+            const entryMonth = new Date(entryDate.getFullYear(), entryDate.getMonth(), 1);
+            if (entryMonth < start) start = addMonths(entryMonth, -1);
+            if (entryMonth > end) end = addMonths(entryMonth, 1);
+        });
+
+        const months = [];
+        for (let cursor = new Date(start); cursor <= end; cursor = addMonths(cursor, 1)) {
+            months.push(new Date(cursor));
+        }
+
+        return months;
+    }
+
+    function getCalendarDayData() {
+        const entryCountByDate = new Map();
+        entries.forEach(entry => {
+            if (!entry.date) return;
+            entryCountByDate.set(entry.date, (entryCountByDate.get(entry.date) || 0) + 1);
+        });
+
+        const sortedBalanceEntries = entries
             .filter(entry => entry.balance != null && entry.date)
             .sort((a, b) => getEntrySortValue(a).localeCompare(getEntrySortValue(b)));
-        
-        // Calendar P/L uses each day's final balance minus the previous trading day's final balance.
-        const dailyPnL = {};
         const finalEntryByDate = new Map();
 
-        sortedEntries.forEach(entry => {
+        sortedBalanceEntries.forEach(entry => {
             finalEntryByDate.set(entry.date, entry);
         });
 
+        const dailyPnL = {};
         const tradingDays = [...finalEntryByDate.keys()].sort();
         tradingDays.forEach((day, index) => {
             if (index === 0) return;
@@ -3016,8 +3089,61 @@
             const previousFinal = finalEntryByDate.get(tradingDays[index - 1]);
             dailyPnL[day] = currentFinal.balance - previousFinal.balance;
         });
+
+        return { entryCountByDate, dailyPnL };
+    }
+
+    function updateCalendar() {
+        const container = document.getElementById('calendarContainer');
+        const monthDisplay = document.getElementById('calendarMonth');
+        const months = getCalendarMonthRange(currentCalendarMonth);
+        const calendarData = getCalendarDayData();
+        
+        monthDisplay.textContent = 'Calendar';
+        container.innerHTML = `
+            <div class="calendar-months">
+                ${months.map(monthDate => generateMonthCalendar(monthDate, calendarData)).join('')}
+            </div>
+        `;
+        
+        requestAnimationFrame(() => {
+            scrollCalendarToMonth(currentCalendarMonth, 'auto');
+        });
+    }
+
+    function changeMonth(direction) {
+        currentCalendarMonth = new Date(currentCalendarMonth.getFullYear(), currentCalendarMonth.getMonth() + direction, 1);
+        const target = document.getElementById(`calendar-month-${getMonthKey(currentCalendarMonth)}`);
+
+        if (target) {
+            scrollCalendarToMonth(currentCalendarMonth, 'smooth');
+        } else {
+            updateCalendar();
+        }
+    }
+
+    function scrollCalendarToMonth(date, behavior = 'smooth') {
+        const calendarView = document.getElementById('calendarView');
+        const target = document.getElementById(`calendar-month-${getMonthKey(date)}`);
+        if (calendarView && target) {
+            calendarView.scrollTo({
+                top: target.offsetTop - calendarView.offsetTop,
+                behavior
+            });
+        }
+    }
+
+    function generateMonthCalendar(date, calendarData) {
+        const year = date.getFullYear();
+        const month = date.getMonth();
+        
+        const firstDay = new Date(year, month, 1).getDay();
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const monthLabel = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
         
         let html = `
+            <section class="calendar-month-section" id="calendar-month-${getMonthKey(date)}">
+            <div class="calendar-month-title">${monthLabel}</div>
             <div class="calendar-grid">
                 <div class="calendar-day-header">Sun</div>
                 <div class="calendar-day-header">Mon</div>
@@ -3036,21 +3162,89 @@
         // Days of month
         for (let day = 1; day <= daysInMonth; day++) {
             const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-            const pnl = dailyPnL[dateStr];
-            const hasTrade = pnl !== undefined;
+            const pnl = calendarData.dailyPnL[dateStr];
+            const entryCount = calendarData.entryCountByDate.get(dateStr) || 0;
+            const hasTrade = entryCount > 0;
+            const hasPnl = pnl !== undefined;
             const isProfit = hasTrade && pnl > 0;
             const isLoss = hasTrade && pnl < 0;
             
             html += `
-                <div class="calendar-day ${hasTrade ? 'has-trade' : ''} ${isProfit ? 'profit' : ''} ${isLoss ? 'loss' : ''}">
+                <button class="calendar-day ${hasTrade ? 'has-trade' : ''} ${isProfit ? 'profit' : ''} ${isLoss ? 'loss' : ''}" onclick="openCalendarDay('${dateStr}')" type="button">
                     <div class="calendar-day-number">${day}</div>
-                    ${hasTrade ? `<div class="calendar-day-pnl ${pnl >= 0 ? 'positive' : 'negative'}">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}</div>` : ''}
-                </div>
+                    ${hasPnl ? `<div class="calendar-day-pnl ${pnl >= 0 ? 'positive' : 'negative'}">${pnl >= 0 ? '+' : ''}$${Math.abs(pnl).toFixed(0)}</div>` : ''}
+                </button>
             `;
         }
         
-        html += '</div>';
+        html += '</div></section>';
         return html;
+    }
+
+    function getEntriesForDate(dateStr) {
+        return entries
+            .filter(entry => entry.date === dateStr)
+            .sort((a, b) => getEntrySortValue(b).localeCompare(getEntrySortValue(a)));
+    }
+
+    function renderCalendarDayEntry(entry) {
+        const images = entry.images || (entry.image ? [entry.image] : []);
+        const fvgDisplay = entry.fvgTimeframe || (entry.fvgTimeframes && entry.fvgTimeframes.length > 0 ? entry.fvgTimeframes.join(', ') : null);
+        const vpDisplay = entry.vpLevel || (entry.vpLevels && entry.vpLevels.length > 0 ? entry.vpLevels.join(', ') : null);
+
+        return `
+            <div class="entry-card ${entry.analysisResult === 'Correct' ? 'correct' : entry.analysisResult === 'Wrong' ? 'wrong' : ''}">
+                <div class="entry-header">
+                    <div class="entry-date">${formatDate(entry.date, entry.time)}</div>
+                    <div class="entry-symbol">${entry.symbol}</div>
+                    <button class="entry-edit-btn" onclick="closeCalendarDay(); editEntry(${entry.id}); event.stopPropagation();">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
+                    </button>
+                </div>
+                ${images.length > 0 ? `
+                    <div class="entry-images">
+                        ${images.map(img => `<img src="${img}" class="entry-image" alt="Trade screenshot" onclick="openImageViewer('${img}')">`).join('')}
+                    </div>
+                ` : ''}
+                <div class="entry-details">
+                    ${fvgDisplay ? `<div class="entry-row"><span class="entry-label">FVG Timeframe:</span><span class="entry-value">${fvgDisplay}</span></div>` : ''}
+                    ${entry.fib ? `<div class="entry-row"><span class="entry-label">Fibonacci:</span><span class="entry-value">${entry.fib}</span></div>` : ''}
+                    ${vpDisplay ? `<div class="entry-row"><span class="entry-label">Volume Profile:</span><span class="entry-value">${vpDisplay}</span></div>` : ''}
+                    <div class="entry-row"><span class="entry-label">1m Market Structure:</span><span class="entry-value">${entry.marketStructure}</span></div>
+                    ${entry.targetTime ? `<div class="entry-row"><span class="entry-label">Target Time:</span><span class="entry-value">${entry.targetTime}</span></div>` : ''}
+                    ${entry.targetRun != null ? `<div class="entry-row"><span class="entry-label">Target Run:</span><span class="entry-value">${entry.targetRun} ${entry.targetRunUnit || 'points'}</span></div>` : ''}
+                    ${entry.safeStopLoss != null ? `<div class="entry-row"><span class="entry-label">Safe Stop Loss:</span><span class="entry-value">${entry.safeStopLoss} points</span></div>` : ''}
+                    ${entry.notes ? `<div class="entry-notes" style="white-space: pre-wrap;">${escapeHtml(entry.notes)}</div>` : ''}
+                    ${entry.balance != null ? `<div class="entry-row balance-row"><span class="entry-label">Balance:</span><span class="entry-value">$${entry.balance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+
+    function openCalendarDay(dateStr) {
+        const modal = document.getElementById('calendarDayModal');
+        const title = document.getElementById('calendarDayTitle');
+        const summary = document.getElementById('calendarDaySummary');
+        const list = document.getElementById('calendarDayEntries');
+        const dayEntries = getEntriesForDate(dateStr);
+
+        title.textContent = formatDate(dateStr);
+        summary.textContent = `${dayEntries.length} ${dayEntries.length === 1 ? 'entry' : 'entries'}`;
+        list.innerHTML = dayEntries.length > 0
+            ? dayEntries.map(renderCalendarDayEntry).join('')
+            : '<div class="day-entries-empty">No journal entries on this day.</div>';
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeCalendarDay() {
+        const modal = document.getElementById('calendarDayModal');
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
     }
 
     function formatDate(dateStr, timeStr) {
