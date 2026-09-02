@@ -13,10 +13,10 @@
 <meta name="theme-color" content="#000000">
 
 <!-- App Icon - Different filename to bypass cache -->
-<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260824-1608">
-<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260824-1608">
-<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260824-1608">
-<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260824-1608">
+<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260902-0949">
+<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260902-0949">
+<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260902-0949">
+<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260902-0949">
 
 <style>
     * {
@@ -54,11 +54,11 @@
 
     .app-updated {
         text-align: center;
-        color: #00ff88;
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.4px;
-        margin: 8px 0 0;
+        color: #5f5f5f;
+        font-size: 10px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+        margin: 6px 0 0;
         text-transform: uppercase;
     }
 
@@ -1312,7 +1312,7 @@
                 </div>
             </div>
         </div>
-        <div class="app-updated">Updated Aug 24, 2026 4:08 PM</div>
+        <div class="app-updated">v1.0.6 • Updated Sep 2, 2026 9:49 AM</div>
     </div>
 
 <!-- Content Wrapper -->
@@ -1753,6 +1753,16 @@
     let notes = [];
     let reversals = [];
 
+    function getLocalDateInputValue(date = new Date()) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    }
+
+    function getEntrySortValue(entry) {
+        return `${entry.date || ''} ${entry.time || '00:00'}`;
+    }
 
     // Bubble selector functionality
     function setupBubbleSelectors() {
@@ -1812,9 +1822,7 @@
 
     function sortEntriesByNewestFirst(list) {
         list.sort((a, b) => {
-            const dateCompare = new Date(b.date) - new Date(a.date);
-            if (dateCompare !== 0) return dateCompare;
-            return (b.time || '').localeCompare(a.time || '');
+            return getEntrySortValue(b).localeCompare(getEntrySortValue(a));
         });
         return list;
     }
@@ -2182,7 +2190,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         loadData();
         // loadNotes() and loadReversals() are called after Firebase auth
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateInputValue();
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         document.getElementById('entryDate').value = today;
@@ -2450,11 +2458,7 @@
                 console.log('✅ New entry created with ID:', entry.id);
             }
             
-            entries.sort((a, b) => {
-                const dateCompare = new Date(b.date) - new Date(a.date);
-                if (dateCompare !== 0) return dateCompare;
-                return (b.time || '').localeCompare(a.time || '');
-            });
+            sortEntriesByNewestFirst(entries);
             
             // Disable submit button to prevent double-saves
             const submitBtn = document.querySelector('#entryForm button[type="submit"]');
@@ -2552,7 +2556,7 @@
     function getBalanceBaseline(entriesWithBalance) {
         if (!statsResetDate || entriesWithBalance.length === 0) return 0;
 
-        const sorted = [...entriesWithBalance].sort((a, b) => new Date(a.date + ' ' + (a.time || '00:00')) - new Date(b.date + ' ' + (b.time || '00:00')));
+        const sorted = [...entriesWithBalance].sort((a, b) => getEntrySortValue(a).localeCompare(getEntrySortValue(b)));
         const afterReset = sorted.filter(isEntryInStatsWindow);
         return afterReset.length > 0 ? afterReset[0].balance : 0;
     }
@@ -2572,7 +2576,7 @@
     }
 
     function resetStatsFromToday() {
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateInputValue();
         if (!confirm(`Reset balance and win rate to 0 starting ${formatDate(today)}? Existing entries stay saved.`)) {
             return;
         }
@@ -2663,7 +2667,7 @@
         document.getElementById('statsWinRate').textContent = winRate + '%';
         
         // Average Win/Loss per day (based on daily balance changes)
-        const entriesWithBalance = statsEntries.filter(e => e.balance != null).sort((a, b) => new Date(a.date + ' ' + (a.time || '00:00')) - new Date(b.date + ' ' + (b.time || '00:00')));
+        const entriesWithBalance = statsEntries.filter(e => e.balance != null).sort((a, b) => getEntrySortValue(a).localeCompare(getEntrySortValue(b)));
         
         // Group by date and calculate daily P/L
         const dailyPL = {};
@@ -2992,20 +2996,26 @@
         const daysInMonth = new Date(year, month + 1, 0).getDate();
         
         // Create a sorted list of entries by date
-        const sortedEntries = [...entries].sort((a, b) => new Date(a.date) - new Date(b.date));
+        const sortedEntries = entries
+            .filter(entry => entry.balance != null && entry.date)
+            .sort((a, b) => getEntrySortValue(a).localeCompare(getEntrySortValue(b)));
         
-        // Calculate P&L for each day by comparing with previous entry
+        // Calendar P/L uses each day's final balance minus the previous trading day's final balance.
         const dailyPnL = {};
-        for (let i = 0; i < sortedEntries.length; i++) {
-            const currentEntry = sortedEntries[i];
-            const currentDate = currentEntry.date;
-            
-            if (i > 0) {
-                const previousEntry = sortedEntries[i - 1];
-                const change = currentEntry.balance - previousEntry.balance;
-                dailyPnL[currentDate] = change;
-            }
-        }
+        const finalEntryByDate = new Map();
+
+        sortedEntries.forEach(entry => {
+            finalEntryByDate.set(entry.date, entry);
+        });
+
+        const tradingDays = [...finalEntryByDate.keys()].sort();
+        tradingDays.forEach((day, index) => {
+            if (index === 0) return;
+
+            const currentFinal = finalEntryByDate.get(day);
+            const previousFinal = finalEntryByDate.get(tradingDays[index - 1]);
+            dailyPnL[day] = currentFinal.balance - previousFinal.balance;
+        });
         
         let html = `
             <div class="calendar-grid">
@@ -3655,7 +3665,7 @@
         modal.style.display = 'block';
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
-        const today = new Date().toISOString().split('T')[0];
+        const today = getLocalDateInputValue();
         const now = new Date();
         const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
         document.getElementById('reversalDate').value = today;
