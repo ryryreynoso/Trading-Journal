@@ -13,10 +13,10 @@
 <meta name="theme-color" content="#000000">
 
 <!-- App Icon - Different filename to bypass cache -->
-<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20260902-1400">
-<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20260902-1400">
-<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20260902-1400">
-<link rel="manifest" href="/Trading-Journal/manifest.json?v=20260902-1400">
+<link rel="apple-touch-icon" sizes="180x180" href="/Trading-Journal/apple-touch-icon.png?v=20261019-2325">
+<link rel="apple-touch-icon" sizes="1024x1024" href="/Trading-Journal/app-icon.png?v=20261019-2325">
+<link rel="icon" type="image/png" href="/Trading-Journal/app-icon.png?v=20261019-2325">
+<link rel="manifest" href="/Trading-Journal/manifest.json?v=20261019-2325">
 
 <style>
     * {
@@ -634,6 +634,8 @@
 
     .stats-header {
         display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
         justify-content: space-between;
         align-items: center;
         margin-bottom: 25px;
@@ -642,7 +644,7 @@
     .stats-title {
         font-size: 28px;
         font-weight: 800;
-        letter-spacing: -0.5px;
+        letter-spacing: 0;
         color: #fff;
     }
 
@@ -707,6 +709,22 @@
         width: 100% !important;
         height: 250px !important;
     }
+
+    .report-filters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .report-filters label { min-width: 0; font-size: 12px; color: #aaa; }
+    .report-filters input, .report-filters select { display: block; width: 100%; min-width: 0; min-height: 44px; margin-top: 6px; padding: 8px; background: #151515; border: 1px solid #444; border-radius: 6px; color: #fff; font: inherit; color-scheme: dark; }
+    .report-section { margin: 24px 0; }
+    .report-section h3 { font-size: 18px; margin-bottom: 12px; }
+    .report-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .report-table th, .report-table td { padding: 12px 4px; border-bottom: 1px solid #333; text-align: right; overflow-wrap: anywhere; }
+    .report-table th:first-child, .report-table td:first-child { text-align: left; }
+    .report-table th { color: #aaa; font-size: 11px; font-weight: 500; }
+    .report-day { background: none; border: 0; color: #75baff; font: inherit; text-align: left; min-height: 36px; cursor: pointer; }
+    .report-note { color: #aaa; font-size: 12px; line-height: 1.5; margin-bottom: 12px; }
+    .report-section .positive { color: #00ff88; }
+    .report-section .negative { color: #ff6666; }
+    .statistics-view .stat-value { font-size: 20px; overflow-wrap: anywhere; }
+    .statistics-view .stat-card { border-radius: 8px; min-width: 0; }
 
 
     .notes-header {
@@ -1356,7 +1374,7 @@
                 </div>
             </div>
         </div>
-        <div class="app-updated">v1.0.7 • Updated Sep 2, 2026 2:00 PM</div>
+        <div class="app-updated">v1.0.9 • Updated Oct 19, 2026 11:25 PM PDT</div>
     </div>
 
 <!-- Content Wrapper -->
@@ -1440,20 +1458,31 @@
             </div>
         </div>
         <div class="stats-reset-info" id="statsResetInfo"></div>
+        <div class="report-filters">
+            <label>From<input type="date" id="reportFrom" onchange="document.getElementById('reportPeriod').value = 'custom'; updateStatistics()"></label>
+            <label>Through<input type="date" id="reportThrough" onchange="document.getElementById('reportPeriod').value = 'custom'; updateStatistics()"></label>
+            <label>Journal symbol<select id="reportSymbol" onchange="updateStatistics()"><option value="">All symbols</option></select></label>
+            <label>Period<select id="reportPeriod" onchange="setReportPeriod(this.value)"><option value="all">All saved dates</option><option value="month">This month</option><option value="30">Last 30 days</option><option value="custom">Custom dates</option></select></label>
+        </div>
+        <p class="report-note" id="reportStatus" role="status"></p>
         
         <div class="stats-grid">
+            <div class="stat-card"><div class="stat-label">Account P/L (All Symbols)</div><div class="stat-value" id="reportNet">--</div></div>
+            <div class="stat-card"><div class="stat-label">Daily Profit Factor</div><div class="stat-value" id="reportFactor">--</div></div>
+            <div class="stat-card"><div class="stat-label">Daily Max Drawdown</div><div class="stat-value negative" id="reportDrawdown">--</div></div>
+            <div class="stat-card"><div class="stat-label">Profitable Days</div><div class="stat-value" id="reportGreenDays">--</div></div>
             <div class="stat-card">
-                <div class="stat-label">Win Rate</div>
+                <div class="stat-label">Analysis Accuracy</div>
                 <div class="stat-value" id="statsWinRate">--%</div>
             </div>
             
             <div class="stat-card">
-                <div class="stat-label">Avg Win</div>
+                <div class="stat-label">Avg Winning Day</div>
                 <div class="stat-value positive" id="statsAvgWin">$0</div>
             </div>
             
             <div class="stat-card">
-                <div class="stat-label">Avg Loss</div>
+                <div class="stat-label">Avg Losing Day</div>
                 <div class="stat-value negative" id="statsAvgLoss">$0</div>
             </div>
             
@@ -1472,6 +1501,14 @@
                 <div class="stat-value" id="statsAvgRun">-- pts</div>
             </div>
         </div>
+        <section class="report-section">
+            <h3>Setup Performance</h3>
+            <table class="report-table"><thead><tr><th>FVG Setup</th><th>Entries</th><th>Reviewed</th><th>Accuracy</th></tr></thead><tbody id="reportSetups"></tbody></table>
+        </section>
+        <section class="report-section">
+            <h3>Daily Review</h3>
+            <table class="report-table"><thead><tr><th>Day</th><th>Entries</th><th>Accuracy</th><th>Account P/L</th></tr></thead><tbody id="reportDays"></tbody></table>
+        </section>
         
         <div class="chart-container">
             <h3 style="color: #fff; font-size: 16px; margin-bottom: 15px;">Account Balance History</h3>
@@ -1810,6 +1847,7 @@
     let currentCalendarMonth = new Date();
     let notes = [];
     let reversals = [];
+    let entryImageDbPromise = null;
 
     function getLocalDateInputValue(date = new Date()) {
         const year = date.getFullYear();
@@ -1947,11 +1985,135 @@
         return sortEntriesByNewestFirst([...byId.values()]);
     }
 
+    function isIndexedDbImageRef(image) {
+        return image && typeof image === 'object' && image.storage === 'indexedDB' && image.key;
+    }
+
+    function openEntryImageDb() {
+        if (entryImageDbPromise) return entryImageDbPromise;
+
+        entryImageDbPromise = new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+                reject(new Error('IndexedDB is not available'));
+                return;
+            }
+
+            const request = indexedDB.open('TradingJournalEntryImages', 1);
+            request.onupgradeneeded = function(event) {
+                const db = event.target.result;
+                if (!db.objectStoreNames.contains('images')) {
+                    db.createObjectStore('images');
+                }
+            };
+            request.onsuccess = function(event) {
+                resolve(event.target.result);
+            };
+            request.onerror = function() {
+                reject(request.error);
+            };
+        });
+
+        return entryImageDbPromise;
+    }
+
+    function getEntryImageFromDb(key) {
+        return openEntryImageDb().then(db => new Promise((resolve, reject) => {
+            const transaction = db.transaction('images', 'readonly');
+            const store = transaction.objectStore('images');
+            const request = store.get(key);
+            request.onsuccess = function() {
+                resolve(request.result || '');
+            };
+            request.onerror = function() {
+                reject(request.error);
+            };
+        }));
+    }
+
+    async function resolveEntryImage(image) {
+        if (isIndexedDbImageRef(image)) {
+            return await getEntryImageFromDb(image.key);
+        }
+
+        return typeof image === 'string' ? image : '';
+    }
+
+    async function storeEntryImages(entryId, images) {
+        const storedImages = [];
+        const db = await openEntryImageDb();
+
+        for (const [index, image] of images.entries()) {
+            if (isIndexedDbImageRef(image)) {
+                storedImages.push(image);
+                continue;
+            }
+
+            if (!image) continue;
+
+            await new Promise((resolve, reject) => {
+                const key = `entry-${entryId}-${Date.now()}-${index}`;
+                const transaction = db.transaction('images', 'readwrite');
+                const store = transaction.objectStore('images');
+                const request = store.put(image, key);
+                transaction.oncomplete = function() {
+                    storedImages.push({ storage: 'indexedDB', key });
+                    resolve();
+                };
+                transaction.onerror = transaction.onabort = function() {
+                    reject(transaction.error || request.error || new Error('Screenshot storage failed'));
+                };
+            });
+        }
+
+        return storedImages;
+    }
+
+    async function migrateEntryImagesToIndexedDB(entryList) {
+        let migrated = false;
+
+        for (const entry of entryList) {
+            const images = entry.images || (entry.image ? [entry.image] : []);
+            if (!images.some(image => typeof image === 'string' && image.startsWith('data:image/'))) continue;
+
+            try {
+                entry.images = await storeEntryImages(entry.id || Date.now(), images);
+                delete entry.image;
+                migrated = true;
+            } catch (error) {
+                console.error('❌ Could not move entry screenshots into IndexedDB:', error);
+            }
+        }
+
+        return migrated;
+    }
+
+    async function prepareEntryForFirebase(entry) {
+        const images = entry.images || (entry.image ? [entry.image] : []);
+        const resolvedImages = [];
+
+        for (const image of images) {
+            const resolved = await resolveEntryImage(image);
+            if (resolved) {
+                resolvedImages.push(resolved);
+            }
+        }
+
+        return {
+            ...entry,
+            images: resolvedImages
+        };
+    }
+
     function persistEntriesLocally() {
+        const serializedEntries = JSON.stringify(entries);
         try {
-            const serializedEntries = JSON.stringify(entries);
             localStorage.setItem(ENTRY_STORAGE_KEY, serializedEntries);
-            localStorage.setItem('tradingJournalLastSavedAt', new Date().toISOString());
+            try {
+                localStorage.setItem('tradingJournalLastSavedAt', new Date().toISOString());
+                ENTRY_LEGACY_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
+            } catch (metadataError) {
+                console.warn('Could not update save timestamp:', metadataError);
+            }
             return true;
         } catch (error) {
             console.error('❌ Could not save journal to localStorage:', error);
@@ -1963,7 +2125,7 @@
             );
 
             alert(isQuotaError
-                ? 'Storage is full, so this entry could not be saved locally. Delete a few older screenshots or use fewer/lower-resolution images, then try again.'
+                ? 'Storage is full, so this entry could not be saved locally. The app tried to optimize screenshots first. Delete a few older screenshots, then try again.'
                 : 'This entry could not be saved locally: ' + error.message
             );
             return false;
@@ -1971,13 +2133,14 @@
     }
 
     // Load data from localStorage
-    function loadData() {
+    async function loadData() {
         const localEntries = readLocalEntries();
 
         if (localEntries.length > 0) {
             // Has local data - use it
             entries = sortEntriesByNewestFirst(localEntries);
-            if (readEntriesFromStorageKey(ENTRY_STORAGE_KEY).length !== entries.length) {
+            const migratedImages = await migrateEntryImagesToIndexedDB(entries);
+            if (migratedImages || readEntriesFromStorageKey(ENTRY_STORAGE_KEY).length !== entries.length) {
                 persistEntriesLocally();
             }
             console.log(`✅ Loaded ${entries.length} entries from localStorage`);
@@ -1996,7 +2159,9 @@
 
     // Save data to localStorage or Firebase
     async function saveData(singleEntry = null) {
-        // ALWAYS save to localStorage first (instant, guaranteed)
+        await migrateEntryImagesToIndexedDB(entries);
+
+        // Commit locally before attempting cloud sync.
         const savedLocally = persistEntriesLocally();
         if (!savedLocally) {
             throw new Error('Local save failed');
@@ -2111,6 +2276,7 @@
         }
         
         try {
+            await migrateEntryImagesToIndexedDB(entries);
             console.log(`💾 Saving ${entries.length} entries to Firebase...`);
             // PROBLEM: This was saving ALL entries every time!
             // This causes massive quota usage
@@ -2118,8 +2284,9 @@
             // For now, this is only called manually via Sync button
             
             for (const entry of entries) {
+                const firebaseEntry = await prepareEntryForFirebase(entry);
                 const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'entries', entry.id.toString());
-                await window.setDoc(docRef, entry);
+                await window.setDoc(docRef, firebaseEntry);
             }
             console.log("✅ Successfully saved to Firebase");
         } catch (error) {
@@ -2142,8 +2309,9 @@
         if (!window.useFirebase || !window.currentUser) return;
         
         try {
+            const firebaseEntry = await prepareEntryForFirebase(entry);
             const docRef = window.doc(window.db, 'users', window.currentUser.uid, 'entries', entry.id.toString());
-            await window.setDoc(docRef, entry);
+            await window.setDoc(docRef, firebaseEntry);
             console.log(`✅ Saved entry ${entry.id} to Firebase`);
         } catch (error) {
             console.error('❌ Error saving entry to Firebase:', error);
@@ -2219,6 +2387,7 @@
             });
 
             entries = mergeLocal ? mergeEntries(readLocalEntries(), remoteEntries) : sortEntriesByNewestFirst(remoteEntries);
+            await migrateEntryImagesToIndexedDB(entries);
             console.log(`✅ Loaded ${entries.length} entries from Firebase${mergeLocal ? ' and localStorage' : ''}`);
             
             // Save to localStorage for offline use
@@ -2350,9 +2519,7 @@
         for (const file of files) {
             if (file && file.type.startsWith('image/')) {
                 try {
-                    // Aggressive compression: 800px max width, 50% quality
-                    // This should reduce file size by 80-90%
-                    const compressedImage = await compressImage(file, 800, 0.5);
+                    const compressedImage = await compressImage(file, 1000, 0.7);
                     uploadedImages.push(compressedImage);
                 } catch (error) {
                     console.error('Error processing image:', error);
@@ -2374,15 +2541,28 @@
             container.style.display = 'block';
             document.getElementById('imageUploadText').textContent = `📸 ${uploadedImages.length} image(s) selected - Tap to add more`;
             
-            previews.innerHTML = uploadedImages.map((img, index) => `
+            previews.innerHTML = uploadedImages.map((_, index) => `
                 <div class="image-preview-item">
-                    <img src="${img}" alt="Preview ${index + 1}">
+                    <img src="" data-entry-preview-index="${index}" alt="Preview ${index + 1}">
                     <button class="image-preview-delete" onclick="removeImage(${index})" type="button">×</button>
                 </div>
             `).join('');
+            hydrateEntryPreviewImages();
         } else {
             container.style.display = 'none';
             document.getElementById('imageUploadText').textContent = '📸 Tap to upload images';
+        }
+    }
+
+    async function hydrateEntryPreviewImages() {
+        const previewImages = document.querySelectorAll('[data-entry-preview-index]');
+        for (const imgEl of previewImages) {
+            const index = Number(imgEl.dataset.entryPreviewIndex);
+            try {
+                imgEl.src = await resolveEntryImage(uploadedImages[index]);
+            } catch (error) {
+                console.error('❌ Could not load entry preview image:', error);
+            }
         }
     }
 
@@ -2394,6 +2574,10 @@
     // Form submission
     document.getElementById('entryForm').addEventListener('submit', async function(e) {
         e.preventDefault();
+        const submitButton = this.querySelector('button[type="submit"]');
+        if (submitButton.disabled) return;
+        const previousEntries = entries.map(entry => ({ ...entry }));
+        let committed = false;
         
         // Get editing ID from hidden input (more reliable than global variable)
         const editingIdFromForm = document.getElementById('editingEntryIdInput').value;
@@ -2488,8 +2672,7 @@
                     savedEntry = entries[index]; // Save reference to the edited entry
                     console.log('✅ Entry updated. Old:', oldEntry.id, 'New:', entries[index].id);
                 }
-                editingEntryId = null;
-                document.getElementById('editingEntryIdInput').value = ''; // Clear hidden input
+                if (!savedEntry) throw new Error('The entry being edited could not be found.');
             } else {
                 // Create new entry
                 console.log('➕ Creating new entry');
@@ -2525,19 +2708,9 @@
                 submitBtn.textContent = 'Saving...';
             }
             
-            // Close modal immediately for better UX
+            await saveData(savedEntry);
+            committed = true;
             closeModal();
-            
-            // Save in background - catch any Firebase errors
-            // Pass the specific entry to save just that one to Firebase
-            try {
-                await saveData(savedEntry);
-                console.log('✅ Entry saved successfully');
-            } catch (saveError) {
-                console.error('⚠️ Error during save:', saveError);
-                // Data is already in entries array and will be in localStorage
-                // Just log the error, don't alert the user
-            }
             
             // Always update display (even if Firebase active)
             updateDisplay();
@@ -2550,6 +2723,7 @@
                 submitBtn.textContent = 'Save Entry';
             }
         } catch (error) {
+            if (!committed) entries = previousEntries;
             console.error('❌ Error saving entry:', error);
             console.error('❌ Error stack:', error.stack);
             
@@ -2580,7 +2754,7 @@
         document.querySelectorAll('.bubble-option').forEach(b => b.classList.remove('active'));
         
         // Update modal title and button text
-        document.querySelector('.modal-title').textContent = 'New Trade Entry';
+        document.querySelector('#entryModal .modal-title').textContent = 'New Trade Entry';
         const submitBtn = document.querySelector('#entryForm button[type="submit"]');
         if (submitBtn) {
             submitBtn.textContent = 'Save Entry';
@@ -2713,8 +2887,91 @@
 
     let balanceChart = null; // Store chart instance
 
+    function setReportPeriod(period) {
+        const today = getLocalDateInputValue();
+        let from = '';
+        if (period === 'month') from = today.slice(0, 8) + '01';
+        if (period === '30') {
+            const start = new Date(today + 'T12:00:00');
+            start.setDate(start.getDate() - 29);
+            from = getLocalDateInputValue(start);
+        }
+        if (period !== 'custom') {
+            document.getElementById('reportFrom').value = from;
+            document.getElementById('reportThrough').value = period === 'all' ? '' : today;
+        }
+        updateStatistics();
+    }
+
+    function buildPerformanceReport(records, dailyPnL, from, through, symbol, resetDate) {
+        const inRange = date => (!from || date >= from) && (!through || date <= through) && (!resetDate || date >= resetDate);
+        const filtered = records.filter(entry => /^\d{4}-\d{2}-\d{2}$/.test(entry.date) && inRange(entry.date) && (!symbol || entry.symbol === symbol));
+        // Account balance snapshots cannot attribute profit to individual symbols or setups.
+        const changes = Object.entries(dailyPnL).filter(([date, value]) => inRange(date) && Number.isFinite(value)).sort(([a], [b]) => a.localeCompare(b));
+        const wins = changes.map(([, value]) => value).filter(value => value > 0);
+        const losses = changes.map(([, value]) => value).filter(value => value < 0);
+        const grossWin = wins.reduce((sum, value) => sum + value, 0);
+        const grossLoss = -losses.reduce((sum, value) => sum + value, 0);
+        let cumulative = 0, peak = 0, drawdown = 0;
+        changes.forEach(([, value]) => {
+            cumulative += value;
+            peak = Math.max(peak, cumulative);
+            drawdown = Math.max(drawdown, peak - cumulative);
+        });
+        const setups = new Map();
+        const days = new Map();
+        filtered.forEach(entry => {
+            const setup = entry.fvgTimeframe || (entry.fvgTimeframes || []).join(', ') || 'Unspecified';
+            for (const [map, key] of [[setups, setup], [days, entry.date]]) {
+                if (!map.has(key)) map.set(key, { count: 0, reviewed: 0, correct: 0 });
+                const row = map.get(key);
+                row.count++;
+                if (entry.analysisResult === 'Correct' || entry.analysisResult === 'Wrong') row.reviewed++;
+                if (entry.analysisResult === 'Correct') row.correct++;
+            }
+        });
+        return { filtered, changes, wins, losses, grossWin, grossLoss, drawdown, setups, days, net: grossWin - grossLoss };
+    }
+
+    function reportMoney(value) {
+        return value.toLocaleString('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 });
+    }
+
+    function renderPerformanceReport(report, dailyPnL) {
+        const setMetric = (id, text, value = 0) => {
+            const element = document.getElementById(id);
+            element.textContent = text;
+            element.className = 'stat-value ' + (value > 0 ? 'positive' : value < 0 ? 'negative' : '');
+        };
+        const hasPnL = report.changes.length > 0;
+        setMetric('reportNet', hasPnL ? reportMoney(report.net) : '--', report.net);
+        setMetric('reportFactor', report.grossLoss ? (report.grossWin / report.grossLoss).toFixed(2) : report.grossWin ? 'No losses' : '--');
+        setMetric('reportDrawdown', hasPnL ? reportMoney(report.drawdown) : '--', -report.drawdown);
+        setMetric('reportGreenDays', hasPnL ? `${report.wins.length} / ${report.changes.length}` : '--');
+        document.getElementById('reportStatus').textContent = `${report.filtered.length} journal entries · ${report.changes.length} measured account days. Account P/L includes all symbols; setup accuracy uses Correct/Wrong reviews.`;
+        const accuracy = row => row.reviewed ? Math.round(row.correct / row.reviewed * 100) + '%' : '--';
+        document.getElementById('reportSetups').innerHTML = [...report.setups.entries()].sort((a, b) => b[1].count - a[1].count).map(([setup, row]) =>
+            `<tr><td>${escapeHtml(setup)}</td><td>${row.count}</td><td>${row.reviewed}</td><td>${accuracy(row)}</td></tr>`
+        ).join('') || '<tr><td colspan="4">No setups in this period.</td></tr>';
+        document.getElementById('reportDays').innerHTML = [...report.days.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([date, row]) => {
+            const pnl = dailyPnL[date];
+            return `<tr><td><button class="report-day" type="button" onclick="openCalendarDay('${date}')">${formatDate(date)}</button></td><td>${row.count}</td><td>${accuracy(row)}</td><td class="${pnl > 0 ? 'positive' : pnl < 0 ? 'negative' : ''}">${Number.isFinite(pnl) ? reportMoney(pnl) : '--'}</td></tr>`;
+        }).join('') || '<tr><td colspan="4">No journal entries in this period.</td></tr>';
+    }
+
     function updateStatistics() {
-        const statsEntries = getStatsEntries();
+        const symbolSelect = document.getElementById('reportSymbol');
+        const selectedSymbol = symbolSelect.value;
+        const symbols = [...new Set(entries.map(entry => entry.symbol).filter(Boolean))].sort();
+        symbolSelect.replaceChildren(new Option('All symbols', ''), ...symbols.map(symbol => new Option(symbol, symbol)));
+        symbolSelect.value = symbols.includes(selectedSymbol) ? selectedSymbol : '';
+        const from = document.getElementById('reportFrom').value;
+        const through = document.getElementById('reportThrough').value;
+        const dailyPnL = getCalendarDayData().dailyPnL;
+        const report = buildPerformanceReport(entries, dailyPnL, from, through, symbolSelect.value, statsResetDate);
+        renderPerformanceReport(report, dailyPnL);
+        if (from && through && from > through) document.getElementById('reportStatus').textContent = 'Choose an end date on or after the start date.';
+        const statsEntries = report.filtered;
 
         // Win Rate
         const correctEntries = statsEntries.filter(e => e.analysisResult === 'Correct');
@@ -2722,29 +2979,14 @@
         const totalAnalyzed = correctEntries.length + wrongEntries.length;
         
         const winRate = totalAnalyzed > 0 ? ((correctEntries.length / totalAnalyzed) * 100).toFixed(0) : 0;
-        document.getElementById('statsWinRate').textContent = winRate + '%';
+        document.getElementById('statsWinRate').textContent = totalAnalyzed ? winRate + '%' : '--';
         
         // Average Win/Loss per day (based on daily balance changes)
-        const entriesWithBalance = statsEntries.filter(e => e.balance != null).sort((a, b) => getEntrySortValue(a).localeCompare(getEntrySortValue(b)));
+        const entriesWithBalance = getStatsEntries().filter(entry => entry.balance != null && (!from || entry.date >= from) && (!through || entry.date <= through)).sort((a, b) => getEntrySortValue(a).localeCompare(getEntrySortValue(b)));
         
         // Group by date and calculate daily P/L
-        const dailyPL = {};
-        entriesWithBalance.forEach(entry => {
-            if (!dailyPL[entry.date]) dailyPL[entry.date] = [];
-            dailyPL[entry.date].push(entry.balance);
-        });
-        
-        let winningDays = [];
-        let losingDays = [];
-        
-        Object.keys(dailyPL).forEach(date => {
-            const balances = dailyPL[date];
-            if (balances.length > 1) {
-                const change = balances[balances.length - 1] - balances[0];
-                if (change > 0) winningDays.push(change);
-                if (change < 0) losingDays.push(Math.abs(change));
-            }
-        });
+        const winningDays = report.wins;
+        const losingDays = report.losses.map(value => -value);
         
         const avgWin = winningDays.length > 0 ? winningDays.reduce((a, b) => a + b, 0) / winningDays.length : 0;
         const avgLoss = losingDays.length > 0 ? losingDays.reduce((a, b) => a + b, 0) / losingDays.length : 0;
@@ -2753,7 +2995,7 @@
         document.getElementById('statsAvgLoss').textContent = '$' + avgLoss.toFixed(2);
         
         // Average Daily P/L (all days combined - winning + losing)
-        const allDailyChanges = [...winningDays, ...losingDays.map(loss => -loss)];
+        const allDailyChanges = report.changes.map(([, value]) => value);
         const avgDaily = allDailyChanges.length > 0 ? allDailyChanges.reduce((a, b) => a + b, 0) / allDailyChanges.length : 0;
         const avgDailyEl = document.getElementById('statsAvgDaily');
         avgDailyEl.textContent = '$' + avgDaily.toFixed(2);
@@ -2792,6 +3034,7 @@
         
         if (entriesWithBalance.length === 0) {
             // No data - show message
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = '#8e8e8e';
             ctx.font = '14px SF Pro Display';
             ctx.textAlign = 'center';
@@ -2800,8 +3043,9 @@
         }
         
         // Prepare data
+        if (typeof Chart === 'undefined') return;
         const labels = entriesWithBalance.map(e => {
-            const date = new Date(e.date + ' ' + e.time);
+            const date = new Date(e.date + 'T' + (e.time || '12:00'));
             return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
         });
         const balances = entriesWithBalance.map(e => statsResetDate ? e.balance - baseline : e.balance);
@@ -2916,7 +3160,7 @@
                 </div>
                 ${images.length > 0 ? `
                     <div class="entry-images" id="images-${entry.id}">
-                        ${images.map(img => `<img src="${img}" class="entry-image" alt="Trade screenshot" onclick="openImageViewer('${img}')">`).join('')}
+                        ${images.map((_, index) => `<img src="" data-entry-id="${entry.id}" data-entry-image-index="${index}" class="entry-image" alt="Trade screenshot">`).join('')}
                     </div>
                     ${images.length > 1 ? `
                     <div class="image-dots" id="dots-${entry.id}">
@@ -2978,6 +3222,7 @@
             </div>
         `}).join('');
         
+        hydrateEntryImages();
         // Setup image scroll listeners for dots
         entries.forEach(entry => {
             const images = entry.images || (entry.image ? [entry.image] : []);
@@ -3020,13 +3265,63 @@
             
             return `
             <div class="grid-item" onclick="editEntry(${entry.id})">
-                ${firstImage ? `<img src="${firstImage}" alt="${entry.symbol} trade">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 24px; color: rgba(0, 168, 255, 0.5);">📊</div>`}
+                ${firstImage ? `<img src="" data-grid-entry-id="${entry.id}" alt="${entry.symbol} trade">` : `<div style="display: flex; align-items: center; justify-content: center; height: 100%; font-size: 24px; color: rgba(0, 168, 255, 0.5);">📊</div>`}
                 <div class="grid-overlay">
                     <div>${entry.symbol}</div>
                     <div style="font-size: 10px; color: rgba(0, 168, 255, 0.7);">${formatDate(entry.date, entry.time)}</div>
                 </div>
             </div>
         `}).join('');
+
+        hydrateGridImages();
+    }
+
+    async function hydrateEntryImages(root = document) {
+        const imageElements = root.querySelectorAll('[data-entry-id][data-entry-image-index]');
+
+        for (const imgEl of imageElements) {
+            const entryId = Number(imgEl.dataset.entryId);
+            const index = Number(imgEl.dataset.entryImageIndex);
+            const entry = entries.find(item => item.id === entryId);
+            if (!entry) continue;
+
+            const images = entry.images || (entry.image ? [entry.image] : []);
+            let src = '';
+            try {
+                src = await resolveEntryImage(images[index]);
+            } catch (error) {
+                console.error('❌ Could not load entry image:', error);
+                continue;
+            }
+            if (!src) continue;
+
+            imgEl.src = src;
+            imgEl.onclick = function() {
+                openImageViewer(src);
+            };
+        }
+    }
+
+    async function hydrateGridImages() {
+        const imageElements = document.querySelectorAll('[data-grid-entry-id]');
+
+        for (const imgEl of imageElements) {
+            const entryId = Number(imgEl.dataset.gridEntryId);
+            const entry = entries.find(item => item.id === entryId);
+            if (!entry) continue;
+
+            const images = entry.images || (entry.image ? [entry.image] : []);
+            let src = '';
+            try {
+                src = await resolveEntryImage(images[0]);
+            } catch (error) {
+                console.error('❌ Could not load grid image:', error);
+                continue;
+            }
+            if (src) {
+                imgEl.src = src;
+            }
+        }
     }
 
     function getMonthKey(date) {
@@ -3206,7 +3501,7 @@
                 </div>
                 ${images.length > 0 ? `
                     <div class="entry-images">
-                        ${images.map(img => `<img src="${img}" class="entry-image" alt="Trade screenshot" onclick="openImageViewer('${img}')">`).join('')}
+                        ${images.map((_, index) => `<img src="" data-entry-id="${entry.id}" data-entry-image-index="${index}" class="entry-image" alt="Trade screenshot">`).join('')}
                     </div>
                 ` : ''}
                 <div class="entry-details">
@@ -3236,6 +3531,7 @@
         list.innerHTML = dayEntries.length > 0
             ? dayEntries.map(renderCalendarDayEntry).join('')
             : '<div class="day-entries-empty">No journal entries on this day.</div>';
+        hydrateEntryImages(list);
 
         modal.classList.add('active');
         document.body.style.overflow = 'hidden';
@@ -3297,7 +3593,7 @@
         console.log('🔧 Setting editingEntryId to:', editingEntryId);
         
         // Update modal title AND button text
-        document.querySelector('.modal-title').textContent = 'Edit Trade Entry';
+        document.querySelector('#entryModal .modal-title').textContent = 'Edit Trade Entry';
         const submitBtn = document.querySelector('#entryForm button[type="submit"]');
         if (submitBtn) {
             submitBtn.textContent = 'Update Entry';
